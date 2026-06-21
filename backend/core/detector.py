@@ -13,9 +13,9 @@ class Detection:
 
 
 class YoloDetector:
-    """Small wrapper around Ultralytics YOLO for person/cell phone detection."""
+    """Small wrapper around Ultralytics YOLO for person/cell phone/document detection."""
 
-    TARGET_LABELS = {"person", "cell phone"}
+    TARGET_LABELS = {"person", "cell phone", "book"}
 
     def __init__(self, model_path: str = "yolov8n.pt", device: str | None = None) -> None:
         try:
@@ -77,4 +77,5 @@ class YoloDetector:
 
 
 def detection_labels(detections: Iterable[Detection]) -> set[str]:
+    """Return the set of unique labels from a collection of detections."""
     return {detection.label for detection in detections}

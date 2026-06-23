@@ -184,6 +184,17 @@ class DetectionWorker:
         target_interval = 1.0 / max(self._config.ui_fps, 1)
         last_loop_started = time.perf_counter()
 
+        # Inference runs every N frames to keep the stream smooth.
+        # On CPU, YOLO can take 100-500ms per frame which tanks FPS.
+        # We run inference every 3rd frame and reuse last detections otherwise.
+        inference_every_n = 3  # run YOLO every Nth frame
+        frame_counter = 0
+
+        # Cache last detection results for reuse between inference frames
+        last_detections: list[Detection] = []
+        last_candidates: list[IncidentCandidate] = []
+        last_inference_ms: float = 0.0
+
         # Desk zone percentages (loaded from config defaults; refreshed from DB periodically)
         zone_percents = (
             self._config.desk_zone_x1,
@@ -220,35 +231,40 @@ class DetectionWorker:
                     time.sleep(0.2)
                     continue
 
-                # Run YOLO inference
-                inference_started = time.perf_counter()
-                try:
-                    detections = detector.detect(
-                        frame,
-                        confidence_threshold=self._config.confidence_threshold,
-                        image_size=self._config.image_size,
-                    )
-                except Exception as exc:
-                    self._set_status(message=f"YOLO inference failed: {exc}")
-                    break
-                inference_ms = (time.perf_counter() - inference_started) * 1000
+                frame_counter += 1
 
-                # Compute table zone in pixels
+                # Compute table zone in pixels (needed for annotation even without inference)
                 height, width = frame.shape[:2]
                 table_zone = table_zone_from_percent(
                     width, height, *zone_percents
                 )
 
-                # Classify violations
-                candidates = classify_incidents(
-                    detections, table_zone, self._config.proximity_pixels
-                )
+                # Run YOLO inference only every Nth frame to reduce lag
+                if frame_counter % inference_every_n == 1 or inference_every_n == 1:
+                    inference_started = time.perf_counter()
+                    try:
+                        last_detections = detector.detect(
+                            frame,
+                            confidence_threshold=self._config.confidence_threshold,
+                            image_size=self._config.image_size,
+                        )
+                    except Exception as exc:
+                        self._set_status(message=f"YOLO inference failed: {exc}")
+                        break
+                    last_inference_ms = (time.perf_counter() - inference_started) * 1000
 
-                # Annotate frame with overlays
-                annotated = _draw_overlays(frame, detections, candidates, table_zone)
+                    # Classify violations
+                    last_candidates = classify_incidents(
+                        last_detections, table_zone, self._config.proximity_pixels
+                    )
 
-                # Log incidents (async logger called from thread)
-                logged_count = self._process_incidents(candidates, annotated)
+                    # Log incidents (async logger called from thread)
+                    logged_count = self._process_incidents(last_candidates, frame)
+                else:
+                    logged_count = 0
+
+                # Annotate frame with the latest detections (even on non-inference frames)
+                annotated = _draw_overlays(frame, last_detections, last_candidates, table_zone)
 
                 # Encode frame as JPEG
                 ok, encoded = cv2.imencode(
@@ -261,14 +277,14 @@ class DetectionWorker:
                         encoded.tobytes(),
                         {
                             "people": sum(
-                                1 for d in detections if d.label == "person"
+                                1 for d in last_detections if d.label == "person"
                             ),
                             "phones": sum(
-                                1 for d in detections if d.label == "cell phone"
+                                1 for d in last_detections if d.label == "cell phone"
                             ),
-                            "active_rule_matches": len(candidates),
+                            "active_rule_matches": len(last_candidates),
                             "logged_this_frame": logged_count,
-                            "inference_ms": round(inference_ms, 1),
+                            "inference_ms": round(last_inference_ms, 1),
                             "fps": round(1.0 / elapsed, 1),
                         },
                     )
@@ -333,17 +349,32 @@ class DetectionWorker:
         """Process incident candidates through the IncidentLogger.
 
         Calls the async try_log_incident from the synchronous worker thread
-        using the worker's own event loop. Also resets tracking for incident
-        types no longer detected.
+        using the worker's own event loop. Uses a grace period before resetting
+        tracking to handle brief detection flickers without losing state.
 
         Returns the count of incidents actually logged this frame.
         """
         active_types = {c.incident_type for c in candidates}
 
-        # Reset tracking for types that are no longer active
+        # Grace period: only reset tracking for types that have been absent
+        # for longer than a brief flicker window (0.5s). This prevents YOLO
+        # detection flickers from restarting the duration threshold countdown.
+        now = time.perf_counter()
+        if not hasattr(self, "_absent_since"):
+            self._absent_since: dict[str, float] = {}
+
         for incident_type in list(self._incident_logger._first_seen.keys()):
             if incident_type not in active_types:
-                self._incident_logger.reset_tracking(incident_type)
+                # Mark when we first noticed this type absent
+                if incident_type not in self._absent_since:
+                    self._absent_since[incident_type] = now
+                # Only reset after the grace period
+                elif now - self._absent_since[incident_type] > 0.5:
+                    self._incident_logger.reset_tracking(incident_type)
+                    self._absent_since.pop(incident_type, None)
+            else:
+                # Type is active again — cancel any absence tracking
+                self._absent_since.pop(incident_type, None)
 
         logged_count = 0
         for candidate in candidates:

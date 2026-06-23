@@ -30,11 +30,11 @@ class AppConfig:
 
     # Incident thresholds
     duration_threshold: float = 1.0  # seconds before logging
-    cooldown_seconds: int = 5  # suppress duplicates within this window
+    cooldown_seconds: int = 3  # suppress duplicates within this window
     proximity_pixels: int = 80  # phone-to-person proximity
 
     # Streaming
-    ui_fps: int = 12  # frames per second for MJPEG stream
+    ui_fps: int = 20  # frames per second for MJPEG stream
 
     # Retention
     retention_days: int = 7

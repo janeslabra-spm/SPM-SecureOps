@@ -22,6 +22,7 @@ from backend.config import AppConfig
 from backend.db.session import configure, get_session_factory, init_db
 from backend.db.audit_queries import insert_audit_log
 from backend.routers.audit import router as audit_router
+from backend.routers.detect_frame import router as detect_frame_router
 from backend.routers.health import router as health_router, set_detection_engine_active
 from backend.routers.incidents import router as incidents_router
 from backend.routers.pipeline import router as pipeline_router
@@ -185,6 +186,7 @@ def create_app() -> FastAPI:
     app.include_router(zones_router)
     app.include_router(audit_router)
     app.include_router(pipeline_router)
+    app.include_router(detect_frame_router)
 
     return app
 

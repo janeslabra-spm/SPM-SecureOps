@@ -101,3 +101,27 @@ export interface AwsServiceCard {
   uptimePercent: number;
   status: "Operational" | "Degraded";
 }
+
+/** Browser camera detection bounding box */
+export interface DetectionBBox {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+/** Single detection from browser camera frame */
+export interface BrowserDetection {
+  label: string;
+  confidence: number;
+  bbox: DetectionBBox;
+  class_id: number;
+}
+
+/** Response from POST /api/browser-camera/detect */
+export interface BrowserDetectionResponse {
+  detections: BrowserDetection[];
+  inference_ms: number;
+  frame_width: number;
+  frame_height: number;
+}

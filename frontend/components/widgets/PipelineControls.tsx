@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Play, Square, RefreshCw, Video, FileVideo, Wifi } from "lucide-react";
+import { Play, Square, RefreshCw, Video, FileVideo, Wifi, Camera } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,20 +9,31 @@ import { Badge } from "@/components/ui/badge";
 import { apiClient } from "@/lib/api-client";
 import type { PipelineStatus } from "@/lib/types";
 
-type SourcePreset = "demo" | "rtsp" | "file";
+export type SourcePreset = "demo" | "rtsp" | "file" | "browser";
+
+interface PipelineControlsProps {
+  /** Callback when the user selects a different source preset */
+  onSourceChange?: (source: SourcePreset) => void;
+}
 
 const PRESETS: { key: SourcePreset; label: string; icon: typeof Video }[] = [
+  { key: "browser", label: "Browser Camera", icon: Camera },
   { key: "demo", label: "Demo Video", icon: FileVideo },
   { key: "rtsp", label: "Live Camera (RTSP/HTTP)", icon: Wifi },
   { key: "file", label: "Custom File", icon: Video },
 ];
 
-export function PipelineControls() {
+export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
   const [status, setStatus] = useState<PipelineStatus | null>(null);
-  const [selectedPreset, setSelectedPreset] = useState<SourcePreset>("demo");
+  const [selectedPreset, setSelectedPreset] = useState<SourcePreset>("browser");
   const [customUrl, setCustomUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handlePresetChange = useCallback((preset: SourcePreset) => {
+    setSelectedPreset(preset);
+    onSourceChange?.(preset);
+  }, [onSourceChange]);
 
   // Poll pipeline status
   useEffect(() => {
@@ -44,6 +55,8 @@ export function PipelineControls() {
   }, []);
 
   const handleStart = useCallback(async () => {
+    if (selectedPreset === "browser") return; // browser camera is handled separately
+
     setLoading(true);
     setError(null);
     try {
@@ -63,6 +76,8 @@ export function PipelineControls() {
           sourceType = "file";
           sourceId = customUrl;
           break;
+        default:
+          return;
       }
 
       await apiClient.startPipeline(sourceType, sourceId);
@@ -107,7 +122,7 @@ export function PipelineControls() {
         {PRESETS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setSelectedPreset(key)}
+            onClick={() => handlePresetChange(key)}
             disabled={isRunning}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors
               ${selectedPreset === key
@@ -120,6 +135,13 @@ export function PipelineControls() {
           </button>
         ))}
       </div>
+
+      {/* Browser camera info */}
+      {selectedPreset === "browser" && (
+        <p className="text-xs text-muted-foreground">
+          Your browser camera will be used as the video source. Detection runs via the backend API.
+        </p>
+      )}
 
       {/* URL/path input for rtsp and custom file */}
       {(selectedPreset === "rtsp" || selectedPreset === "file") && (
@@ -136,31 +158,33 @@ export function PipelineControls() {
         />
       )}
 
-      {/* Action buttons */}
-      <div className="flex gap-2">
-        {!isRunning ? (
-          <Button
-            size="sm"
-            onClick={handleStart}
-            disabled={loading || ((selectedPreset === "rtsp" || selectedPreset === "file") && !customUrl)}
-            className="gap-1.5"
-          >
-            {loading ? <RefreshCw className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-            Start Pipeline
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={handleStop}
-            disabled={loading}
-            className="gap-1.5"
-          >
-            {loading ? <RefreshCw className="size-3.5 animate-spin" /> : <Square className="size-3.5" />}
-            Stop Pipeline
-          </Button>
-        )}
-      </div>
+      {/* Action buttons (hidden for browser camera) */}
+      {selectedPreset !== "browser" && (
+        <div className="flex gap-2">
+          {!isRunning ? (
+            <Button
+              size="sm"
+              onClick={handleStart}
+              disabled={loading || ((selectedPreset === "rtsp" || selectedPreset === "file") && !customUrl)}
+              className="gap-1.5"
+            >
+              {loading ? <RefreshCw className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+              Start Pipeline
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleStop}
+              disabled={loading}
+              className="gap-1.5"
+            >
+              {loading ? <RefreshCw className="size-3.5 animate-spin" /> : <Square className="size-3.5" />}
+              Stop Pipeline
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Status info */}
       {isRunning && status && (

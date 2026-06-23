@@ -119,6 +119,7 @@ The frontend will be available at `http://localhost:3000`.
 | POST | `/api/pipeline/stop` | Stop detection pipeline |
 | GET | `/api/pipeline/detections` | Latest detection results |
 | PUT | `/api/pipeline/config` | Update runtime pipeline config |
+| POST | `/api/browser-camera/detect` | Detect objects in a browser-uploaded JPEG frame |
 
 ## Detection Rules
 
@@ -167,15 +168,28 @@ The frontend uses client-side view switching within a single Shell layout (no pa
 
 ### Pipeline Controls Widget
 
-The `PipelineControls` widget provides in-dashboard start/stop controls for the detection pipeline with three source presets:
+The `PipelineControls` widget provides in-dashboard start/stop controls for the detection pipeline with four source presets (defaults to Browser Camera):
 
 | Preset | Source Type | Default source_id |
 |--------|------------|-------------------|
+| Browser Camera (default) | browser | Browser webcam via `/api/browser-camera/detect` |
 | Demo Video | `file` | `/app/backend/demo.mp4` |
 | Live Camera (RTSP/HTTP) | `cctv` | User-provided URL |
 | Custom File | `file` | User-provided path |
 
-The widget polls `/api/pipeline/status` every 3 seconds and displays live metrics (FPS, frames processed, inference latency, detection count) while the pipeline is running.
+The widget polls `/api/pipeline/status` every 3 seconds and displays live metrics (FPS, frames processed, inference latency, detection count) while the pipeline is running. When "Browser Camera" is selected, the pipeline start/stop buttons are hidden since detection is handled per-frame via the browser camera endpoint.
+
+## Browser Camera Detection
+
+The system supports using the user's browser webcam as a video source via the `/api/browser-camera/detect` endpoint. The browser captures frames using `getUserMedia` + canvas, encodes them as JPEG, and POSTs them to the backend for YOLO inference.
+
+| Field | Description |
+|-------|-------------|
+| Request | `POST /api/browser-camera/detect` with `multipart/form-data` containing a JPEG `frame` |
+| Response | JSON with `detections` (array of label, confidence, bbox, class_id), `inference_ms`, `frame_width`, `frame_height` |
+| Error | 422 if non-image content type, empty payload, or undecodable image |
+
+The endpoint lazily initializes a shared `InferenceEngine` on first request and reuses it for subsequent calls.
 
 ## Video Source Types
 

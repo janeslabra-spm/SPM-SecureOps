@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
-import { Cctv, ScanLine } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Cctv, ScanLine, Camera } from "lucide-react";
 
 import { usePolling } from "@/hooks/usePolling";
 import { useApiClient } from "@/hooks/useApiClient";
@@ -10,11 +10,14 @@ import { mapBackendIncidents, BackendIncident } from "@/lib/incident-mapper";
 import type { ComplianceEvent } from "@/lib/types";
 
 import { StreamPreview } from "@/components/widgets/StreamPreview";
+import { BrowserCamera } from "@/components/widgets/BrowserCamera";
 import { EventFeed } from "@/components/widgets/EventFeed";
 import { PipelineControls } from "@/components/widgets/PipelineControls";
+import type { SourcePreset } from "@/components/widgets/PipelineControls";
 
 export function LiveMonitoringView() {
   const api = useApiClient();
+  const [sourcePreset, setSourcePreset] = useState<SourcePreset>("browser");
 
   const eventsFetcher = useCallback(async (): Promise<ComplianceEvent[]> => {
     const raw = await api.getIncidents();
@@ -26,6 +29,8 @@ export function LiveMonitoringView() {
     POLLING_INTERVALS.DASHBOARD
   );
 
+  const isBrowserCamera = sourcePreset === "browser";
+
   return (
     <div data-testid="view-live" className="grid grid-cols-1 gap-4 xl:grid-cols-3">
       {/* Live stream card */}
@@ -33,11 +38,13 @@ export function LiveMonitoringView() {
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2.5">
             <div className="grid size-8 place-items-center rounded-lg bg-primary/12 text-primary">
-              <Cctv className="size-4" />
+              {isBrowserCamera ? <Camera className="size-4" /> : <Cctv className="size-4" />}
             </div>
             <div>
               <h2 className="text-sm font-semibold">Live Compliance Monitoring</h2>
-              <p className="text-xs text-muted-foreground">Real-time detection overlay</p>
+              <p className="text-xs text-muted-foreground">
+                {isBrowserCamera ? "Browser camera with AI detection" : "Real-time detection overlay"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-full bg-danger/15 px-2.5 py-1 ring-1 ring-danger/30">
@@ -46,12 +53,21 @@ export function LiveMonitoringView() {
           </div>
         </div>
 
-        <StreamPreview isActive={true} />
+        {/* Conditionally render browser camera or MJPEG stream */}
+        {isBrowserCamera ? (
+          <div className="p-4">
+            <BrowserCamera active={true} fps={2} />
+          </div>
+        ) : (
+          <StreamPreview isActive={true} />
+        )}
 
         <div className="flex items-center justify-between border-t border-border px-5 py-3">
           <div>
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Camera Source</p>
-            <p className="text-sm font-semibold">BPO Operations Floor — Camera 01</p>
+            <p className="text-sm font-semibold">
+              {isBrowserCamera ? "Browser Camera — User Device" : "BPO Operations Floor — Camera 01"}
+            </p>
           </div>
           <div className="flex items-center gap-1.5 rounded-full bg-success/20 px-2.5 py-1 ring-1 ring-success/40">
             <ScanLine className="size-3.5 text-success" />
@@ -62,7 +78,7 @@ export function LiveMonitoringView() {
 
       {/* Pipeline Source Controls + Event Feed (right column) */}
       <div className="flex flex-col gap-4">
-        <PipelineControls />
+        <PipelineControls onSourceChange={setSourcePreset} />
         <EventFeed
           events={events ?? []}
           loading={eventsLoading && !events}

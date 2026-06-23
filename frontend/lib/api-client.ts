@@ -9,6 +9,7 @@ import type {
   IncidentQueryParams,
   EventStatus,
   PipelineStatus,
+  BrowserDetectionResponse,
 } from "./types";
 import { API_TIMEOUT } from "./constants";
 
@@ -143,6 +144,23 @@ export class ApiClient {
    */
   async stopPipeline(): Promise<void> {
     await this.client.post("/api/pipeline/stop");
+  }
+
+  // ─── Browser Camera ─────────────────────────────────────────────────
+
+  /**
+   * Send a captured frame (as Blob/JPEG) to the backend for detection.
+   * Used when the browser camera is the video source.
+   */
+  async detectFrame(frameBlob: Blob): Promise<BrowserDetectionResponse> {
+    const formData = new FormData();
+    formData.append("frame", frameBlob, "frame.jpg");
+
+    const response = await this.client.post("/api/browser-camera/detect", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 15000, // longer timeout for inference
+    });
+    return response.data;
   }
 }
 

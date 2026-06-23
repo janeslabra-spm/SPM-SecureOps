@@ -1,0 +1,76 @@
+# Production deployment compose file
+# Uses pre-built images from GHCR instead of building locally.
+# Deployed via CD pipeline to /home/ubuntu/secureops
+
+services:
+  # PostgreSQL database
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-security_monitoring}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - secureops
+
+  # FastAPI backend with YOLO detection
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY:-cellphone-monitoring}/backend:dev
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/security_monitoring}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:3000}
+      MODEL_PATH: ${MODEL_PATH:-yolov8n.pt}
+      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.40}
+      DEVICE: ${DEVICE:-auto}
+      SOURCE_MODE: ${SOURCE_MODE:-webcam}
+      CAMERA_INDEX: ${CAMERA_INDEX:-0}
+      RETENTION_DAYS: ${RETENTION_DAYS:-7}
+    volumes:
+      - screenshots:/app/screenshots
+      - yolo_models:/root/.cache
+    ports:
+      - "8000:8000"
+    # Uncomment below to pass through a USB webcam
+    # devices:
+    #   - /dev/video0:/dev/video0
+    networks:
+      - secureops
+
+  # Next.js frontend (standalone)
+  frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY:-cellphone-monitoring}/frontend:dev
+    restart: unless-stopped
+    depends_on:
+      - backend
+    env_file: .env
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:8000}
+    ports:
+      - "3000:3000"
+    networks:
+      - secureops
+
+volumes:
+  postgres_data:
+  screenshots:
+  yolo_models:
+
+networks:
+  secureops:
+    driver: bridge

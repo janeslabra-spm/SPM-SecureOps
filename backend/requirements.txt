@@ -1,0 +1,25 @@
+# Security Monitoring System - Backend Dependencies
+
+# Web framework
+fastapi
+uvicorn[standard]
+
+# Database (async PostgreSQL)
+sqlalchemy[asyncio]
+asyncpg
+
+# Data validation and settings
+pydantic
+pydantic-settings
+python-dotenv
+
+# File upload support
+python-multipart
+
+# Computer vision
+opencv-python-headless
+ultralytics
+numpy
+
+# Development / Testing
+hypothesis

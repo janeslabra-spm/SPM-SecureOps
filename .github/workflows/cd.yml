@@ -1,0 +1,197 @@
+# CD: Cellphone Monitoring
+# Manual trigger only. Run from the Actions UI after CI success.
+
+on:
+  workflow_dispatch:
+    inputs:
+      update_env:
+        description: "Force update .env file on server from secrets"
+        type: boolean
+        default: false
+
+env:
+  DEPLOY_PATH: /home/ubuntu/secureops
+  DEPLOY_BRANCH: Dev-Rick
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: "Build & Push: ${{ matrix.name }}"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            image: backend
+            context: ./backend
+            dockerfile: Dockerfile
+            cache_scope: backend
+          - name: frontend
+            image: frontend
+            context: ./frontend
+            dockerfile: Dockerfile
+            cache_scope: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalize GHCR image name
+        id: image_base
+        run: echo "image_base=$(echo ghcr.io/${GITHUB_REPOSITORY} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.image_base.outputs.image_base }}/${{ matrix.image }}:dev
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
+
+  Deploy_to_EC2:
+    name: Deploy to EC2
+    needs: [build]
+    runs-on: [self-hosted, deploy-rick]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_BRANCH }}
+
+      - name: Sync to Deploy Path
+        run: |
+          DEPLOY_PATH="${{ env.DEPLOY_PATH }}"
+          mkdir -p "$DEPLOY_PATH"
+
+          # Sync repo files to deploy path, preserving .env
+          rsync -a --delete \
+            --exclude '.env' \
+            --exclude '.git' \
+            "${{ github.workspace }}/" "$DEPLOY_PATH/"
+
+          echo "Repository synced to $DEPLOY_PATH"
+
+      - name: Update .env (Only when requested)
+        if: github.event.inputs.update_env == 'true'
+        run: |
+          ENV_PATH="${{ env.DEPLOY_PATH }}/.env"
+          cat <<'EOF' > "$ENV_PATH"
+          ${{ secrets.ENV_FILE }}
+          EOF
+          chmod 600 "$ENV_PATH"
+          echo ".env file updated from secrets"
+
+      - name: Verify .env exists
+        run: |
+          ENV_PATH="${{ env.DEPLOY_PATH }}/.env"
+          if [ ! -f "$ENV_PATH" ]; then
+            echo "No .env file found at $ENV_PATH"
+            echo "Create one manually on the server, or re-run with 'Force update .env' checked."
+            exit 1
+          fi
+          echo ".env file exists"
+
+      - name: Deploy Stack
+        run: |
+          cd ${{ env.DEPLOY_PATH }}
+
+          # Login to GHCR to pull private images
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          # Pull latest images and deploy
+          docker compose -f docker-compose.deploy.yml -p secureops pull
+          docker compose -f docker-compose.deploy.yml -p secureops up -d --remove-orphans
+
+          # Cleanup old dangling images
+          sleep 10
+          docker image prune -f
+
+          echo "Stack deployed successfully"
+
+  release:
+    name: Create Release
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check skip release flag
+        id: skip_release
+        run: |
+          if git log -1 --pretty=%B | grep -qi '\[skip release\]'; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Release is skipped due to [skip release] flag."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run semantic-release
+        if: steps.skip_release.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx -y \
+            -p semantic-release \
+            -p @semantic-release/commit-analyzer \
+            -p @semantic-release/release-notes-generator \
+            -p @semantic-release/github \
+            semantic-release
+
+      - name: Skip release notice
+        if: steps.skip_release.outputs.skip == 'true'
+        run: echo "Skipping release generation for this commit."
+
+  CD_Success:
+    name: CD Success
+    needs: [build, Deploy_to_EC2, release]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deployment complete
+        run: |
+          if [ "${{ needs.build.result }}" = "success" ] && \
+             [ "${{ needs.release.result }}" = "success" ] && \
+             ( [ "${{ needs.Deploy_to_EC2.result }}" = "success" ] || [ "${{ needs.Deploy_to_EC2.result }}" = "skipped" ] ); then
+            echo "CD pipeline completed successfully"
+            echo "Backend:  ghcr.io/${{ github.repository }}/backend"
+            echo "Frontend: ghcr.io/${{ github.repository }}/frontend"
+            echo "Commit:   ${{ github.sha }}"
+          else
+            echo "CD failed"
+            echo "build:          ${{ needs.build.result }}"
+            echo "Deploy_to_EC2:  ${{ needs.Deploy_to_EC2.result }}"
+            echo "release:        ${{ needs.release.result }}"
+            exit 1
+          fi

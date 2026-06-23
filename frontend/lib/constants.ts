@@ -23,8 +23,8 @@ export const VIEW_KEYS: ViewKey[] = [
 export const POLLING_INTERVALS = {
   /** 2s for stream status */
   STREAM: 2000,
-  /** 10s for dashboard widgets */
-  DASHBOARD: 10000,
+  /** 3s for dashboard/live monitoring widgets */
+  DASHBOARD: 3000,
   /** 30s for health/AWS */
   HEALTH: 30000,
 } as const;

@@ -48,7 +48,7 @@ export function LiveMonitoringView() {
   ).length;
 
   return (
-    <div data-testid="view-live" className="flex flex-col gap-4">
+    <div data-testid="view-live" className="flex flex-col gap-3">
       {/* Live stats bar */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard icon={Activity} label="Active Detections" value={String(todayEvents.length)} tone="info" />
@@ -58,7 +58,7 @@ export function LiveMonitoringView() {
       </div>
 
       {/* Main content grid */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
         {/* Left: Live video feed — takes more space */}
         <section className="glass flex flex-col overflow-hidden rounded-2xl xl:col-span-7">
           {/* Header */}
@@ -116,14 +116,14 @@ export function LiveMonitoringView() {
           </div>
         </section>
 
-        {/* Right column: Pipeline controls + Event Feed — scrollable */}
-        <div className="flex flex-col gap-4 xl:col-span-5 xl:max-h-[calc(100vh-240px)]">
+        {/* Right column: Pipeline controls + Event Feed — fills viewport height */}
+        <div className="flex flex-col gap-3 xl:col-span-5 xl:h-[calc(100vh-240px)] overflow-hidden">
           <PipelineControls onSourceChange={setSourcePreset} />
           <EventFeed
             events={allEvents}
             loading={eventsLoading && !events}
             maxItems={30}
-            className="flex-1 min-h-0"
+            className="flex-1 min-h-0 overflow-hidden"
           />
         </div>
       </div>

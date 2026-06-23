@@ -17,8 +17,8 @@ class AppConfig:
     # Detection
     model_path: str = "yolo11n.pt"
     device: str = "auto"
-    confidence_threshold: float = 0.40
-    image_size: int = 480
+    confidence_threshold: float = 0.30
+    image_size: int = 640
 
     # Video source
     source_mode: str = "webcam"  # "webcam" | "sample_video"
@@ -45,7 +45,8 @@ class AppConfig:
     screenshots_dir: str = "screenshots"
 
     # Desk Zone defaults (percentage values 0-100)
-    desk_zone_x1: int = 10
-    desk_zone_y1: int = 20
-    desk_zone_x2: int = 90
-    desk_zone_y2: int = 80
+    # Covers the white desk surface in the overhead CCTV view
+    desk_zone_x1: int = 5
+    desk_zone_y1: int = 35
+    desk_zone_x2: int = 95
+    desk_zone_y2: int = 70

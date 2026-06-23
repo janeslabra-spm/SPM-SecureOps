@@ -51,12 +51,12 @@ export function DashboardView() {
         </div>
 
         {/* Right column: Scrollable Event Feed */}
-        <div className="xl:col-span-1 xl:max-h-[calc(100vh-220px)] xl:sticky xl:top-4">
+        <div className="xl:col-span-1 xl:h-[calc(100vh-220px)] xl:sticky xl:top-4 overflow-hidden">
           <EventFeed
             events={allEvents}
             loading={loading && !events}
             maxItems={20}
-            className="h-full max-h-[600px] xl:max-h-full"
+            className="h-full overflow-hidden"
           />
         </div>
       </div>

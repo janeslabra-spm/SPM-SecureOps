@@ -33,7 +33,7 @@ export function EventFeed({ events, loading, maxItems, className }: EventFeedPro
       </div>
 
       {/* Content */}
-      <ScrollArea className="min-h-[300px] max-h-[520px] flex-1 px-3 py-3 xl:max-h-none xl:h-[calc(100%-65px)]">
+      <ScrollArea className="flex-1 overflow-hidden px-3 py-3">
         {loading ? (
           <div className="flex flex-col gap-2.5">
             {Array.from({ length: 4 }).map((_, i) => (

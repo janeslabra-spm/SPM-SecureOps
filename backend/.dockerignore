@@ -5,3 +5,7 @@ __pycache__
 *.db
 tests/
 .pytest_cache
+.venv
+venv
+*.egg-info
+.mypy_cache

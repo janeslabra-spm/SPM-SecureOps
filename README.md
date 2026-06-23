@@ -58,7 +58,7 @@ DATABASE_URL=postgresql+asyncpg://postgres:yourpassword@localhost:5432/security_
 CORS_ORIGINS=http://localhost:3000
 ```
 
-The frontend uses an optional `BACKEND_URL` environment variable (default: `http://backend:8000`) to configure Next.js rewrites that proxy `/api/*`, `/health`, `/incidents/*`, `/zones/*`, and `/stream/*` requests to the backend. For local development without Docker, set `BACKEND_URL=http://localhost:8000` in the frontend's `.env.local`.
+The frontend uses an optional `BACKEND_URL` environment variable (default: `http://backend:8000`) to configure Next.js rewrites that proxy `/api/*`, `/health`, `/incidents/*`, `/zones/*`, `/stream/*`, and `/screenshots/*` requests to the backend. For local development without Docker, set `BACKEND_URL=http://localhost:8000` in the frontend's `.env.local`.
 
 ### 2. Backend setup
 

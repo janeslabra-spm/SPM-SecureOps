@@ -12,6 +12,7 @@ export interface BackendIncident {
   timestamp: string;
   status: string;
   notes: string;
+  screenshot_path: string;
 }
 
 /**
@@ -66,6 +67,7 @@ export function mapBackendIncident(incident: BackendIncident): ComplianceEvent {
     zone: incident.camera_name,
     reviewer: parseReviewer(incident.notes),
     notes: incident.notes,
+    screenshotPath: incident.screenshot_path ?? "",
   };
 }
 

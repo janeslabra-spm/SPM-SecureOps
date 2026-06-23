@@ -27,6 +27,7 @@ export interface ComplianceEvent {
   zone: string;
   reviewer: string;
   notes: string;
+  screenshotPath: string;
 }
 
 /** Backend GET /health response */

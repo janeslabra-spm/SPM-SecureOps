@@ -35,6 +35,10 @@ const nextConfig: NextConfig = {
         source: "/stream/:path*",
         destination: `${backendUrl}/stream/:path*`,
       },
+      {
+        source: "/screenshots/:path*",
+        destination: `${backendUrl}/screenshots/:path*`,
+      },
     ];
   },
 };

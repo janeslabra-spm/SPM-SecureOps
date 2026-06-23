@@ -28,6 +28,7 @@ function makeEvent(id: number): ComplianceEvent {
     zone: "Main Camera",
     reviewer: "",
     notes: "",
+    screenshotPath: "",
   };
 }
 

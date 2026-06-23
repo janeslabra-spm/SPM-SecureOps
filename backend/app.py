@@ -17,6 +17,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from backend.config import AppConfig
 from backend.db.session import configure, get_session_factory, init_db
@@ -193,6 +194,11 @@ def create_app() -> FastAPI:
     app.include_router(audit_router)
     app.include_router(pipeline_router)
     app.include_router(detect_frame_router)
+
+    # Serve screenshot files as static assets
+    screenshots_path = Path("screenshots")
+    screenshots_path.mkdir(parents=True, exist_ok=True)
+    app.mount("/screenshots", StaticFiles(directory=str(screenshots_path)), name="screenshots")
 
     return app
 

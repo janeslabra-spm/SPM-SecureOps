@@ -35,6 +35,7 @@ describe("mapBackendIncident", () => {
     timestamp: "2024-01-15T10:30:00Z",
     status: "Pending Review",
     notes: "Detected during morning shift",
+    screenshot_path: "screenshots/incident_42.jpg",
   };
 
   it("maps incident_id to id", () => {
@@ -150,6 +151,7 @@ describe("mapBackendIncidents", () => {
         timestamp: "2024-01-15T09:00:00Z",
         status: "Confirmed",
         notes: "",
+        screenshot_path: "screenshots/incident_1.jpg",
       },
       {
         incident_id: 2,
@@ -159,6 +161,7 @@ describe("mapBackendIncidents", () => {
         timestamp: "2024-01-15T09:05:00Z",
         status: "False Alarm",
         notes: "Reviewed by: Jane Doe",
+        screenshot_path: "",
       },
     ];
 

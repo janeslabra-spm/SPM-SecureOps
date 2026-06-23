@@ -22,6 +22,7 @@ function makeEvent(
     zone: "Main Camera",
     reviewer: "",
     notes: "",
+    screenshotPath: "",
   };
 }
 

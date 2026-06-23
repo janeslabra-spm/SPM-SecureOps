@@ -10,6 +10,9 @@ import {
   XCircle,
   AlertTriangle,
   Eye,
+  X,
+  ImageOff,
+  Camera,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -42,8 +45,8 @@ import { usePolling } from "@/hooks/usePolling";
 import { useApiClient } from "@/hooks/useApiClient";
 import { POLLING_INTERVALS, PRIORITY_COLORS, STATUS_COLORS } from "@/lib/constants";
 import { mapBackendIncidents, BackendIncident } from "@/lib/incident-mapper";
-import type { ComplianceEvent, EventStatus, ReviewPriority } from "@/lib/types";
-import { formatTimestamp } from "@/lib/utils";
+import type { ComplianceEvent, EventStatus } from "@/lib/types";
+import { cn, formatTimestamp } from "@/lib/utils";
 
 const ALL_STATUSES: Array<EventStatus | "All"> = [
   "All",
@@ -56,11 +59,19 @@ const ALL_STATUSES: Array<EventStatus | "All"> = [
   "Resolved",
 ];
 
+// Construct evidence image URL from screenshot_path
+function getEvidenceUrl(screenshotPath: string): string {
+  if (!screenshotPath) return "";
+  // The backend serves screenshots at /screenshots/<filename>
+  // screenshot_path from DB is typically "screenshots/filename.jpg"
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+  // Strip leading "screenshots/" if present since the route already includes it
+  const filename = screenshotPath.replace(/^screenshots[/\\]/, "");
+  return `${baseUrl}/screenshots/${filename}`;
+}
+
 /**
  * ComplianceReviewView — Structured review and resolution workflow.
- *
- * Table columns: Event ID, Timestamp, Event Type, Review Priority, Status,
- * Reviewer, Notes, Evidence, Actions
  */
 export function ComplianceReviewView() {
   const api = useApiClient();
@@ -68,6 +79,7 @@ export function ComplianceReviewView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<EventStatus | "All">("All");
   const [localUpdates, setLocalUpdates] = useState<Record<number, Partial<ComplianceEvent>>>({});
+  const [evidenceModal, setEvidenceModal] = useState<ComplianceEvent | null>(null);
 
   const fetcher = useCallback(async (): Promise<ComplianceEvent[]> => {
     const raw = await api.getIncidents();
@@ -77,7 +89,7 @@ export function ComplianceReviewView() {
     );
   }, [api]);
 
-  const { data: events, loading, error, refresh } = usePolling<ComplianceEvent[]>(
+  const { data: events, loading, error } = usePolling<ComplianceEvent[]>(
     fetcher,
     POLLING_INTERVALS.DASHBOARD
   );
@@ -152,26 +164,18 @@ export function ComplianceReviewView() {
   };
 
   return (
-    <div data-testid="view-review" className="space-y-6">
-      {/* Page header */}
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Compliance Review</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Structured review and resolution workflow
-        </p>
-      </div>
-
+    <div data-testid="view-review" className="flex flex-col gap-4">
       {/* Table card */}
-      <div className="glass-card overflow-hidden">
+      <div className="glass overflow-hidden rounded-2xl">
         {/* Table toolbar */}
-        <div className="flex flex-col gap-3 p-4 border-b border-border/50 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-sm font-medium text-foreground">Compliance Review Workflow</h2>
+            <h2 className="text-sm font-semibold">Compliance Review Workflow</h2>
             <p className="text-xs text-muted-foreground">
               {filteredEvents.length} events in current view
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -205,7 +209,7 @@ export function ComplianceReviewView() {
               variant="outline"
               size="sm"
               onClick={handleExportCsv}
-              className="gap-2 bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20"
+              className="gap-2 bg-success/10 text-success border-success/30 hover:bg-success/20"
             >
               <Download className="h-4 w-4" />
               Export CSV
@@ -215,8 +219,8 @@ export function ComplianceReviewView() {
 
         {/* Error state */}
         {error && !events && (
-          <div className="p-4">
-            <p className="text-sm text-red-400">Failed to load events. Retrying…</p>
+          <div className="p-5">
+            <p className="text-sm text-danger">Failed to load events. Retrying…</p>
           </div>
         )}
 
@@ -233,15 +237,15 @@ export function ComplianceReviewView() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border/50 hover:bg-transparent">
-                  <TableHead className="text-xs">Event ID</TableHead>
-                  <TableHead className="text-xs">Timestamp</TableHead>
-                  <TableHead className="text-xs">Event Type</TableHead>
-                  <TableHead className="text-xs">Review Priority</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="text-xs">Reviewer</TableHead>
-                  <TableHead className="text-xs">Notes</TableHead>
-                  <TableHead className="text-xs">Evidence</TableHead>
-                  <TableHead className="text-xs text-right">Actions</TableHead>
+                  <TableHead className="text-xs font-medium">Event ID</TableHead>
+                  <TableHead className="text-xs font-medium">Timestamp</TableHead>
+                  <TableHead className="text-xs font-medium">Event Type</TableHead>
+                  <TableHead className="text-xs font-medium">Review Priority</TableHead>
+                  <TableHead className="text-xs font-medium">Status</TableHead>
+                  <TableHead className="text-xs font-medium">Reviewer</TableHead>
+                  <TableHead className="text-xs font-medium">Notes</TableHead>
+                  <TableHead className="text-xs font-medium">Evidence</TableHead>
+                  <TableHead className="text-xs font-medium text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -261,11 +265,9 @@ export function ComplianceReviewView() {
                         {formatTimestamp(event.timestamp)}
                       </TableCell>
                       <TableCell className="text-xs">
-                        {event.eventType === "PHONE_ON_TABLE"
+                        {event.eventType === "PHONE_ON_TABLE" || event.eventType === "PHONE_HELD_OR_NEAR_PERSON"
                           ? "Mobile Device Detection"
-                          : event.eventType === "PHONE_HELD_OR_NEAR_PERSON"
-                            ? "Mobile Device Detection"
-                            : "Printed Material Detection"}
+                          : "Printed Material Detection"}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -293,10 +295,21 @@ export function ComplianceReviewView() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 gap-1.5 text-xs bg-muted/50 border-border/50"
+                          className={cn(
+                            "h-7 gap-1.5 text-xs",
+                            event.screenshotPath
+                              ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 cursor-pointer"
+                              : "bg-muted/50 text-muted-foreground border-border/50 cursor-not-allowed opacity-60"
+                          )}
+                          onClick={() => {
+                            if (event.screenshotPath) {
+                              setEvidenceModal(event);
+                            }
+                          }}
+                          disabled={!event.screenshotPath}
                         >
                           <Eye className="h-3 w-3" />
-                          View
+                          {event.screenshotPath ? "View" : "N/A"}
                         </Button>
                       </TableCell>
                       <TableCell className="text-right">
@@ -333,6 +346,102 @@ export function ComplianceReviewView() {
             </Table>
           </div>
         )}
+      </div>
+
+      {/* Evidence Modal */}
+      {evidenceModal && (
+        <EvidenceModal event={evidenceModal} onClose={() => setEvidenceModal(null)} />
+      )}
+    </div>
+  );
+}
+
+/** Full-screen modal to display evidence screenshot */
+function EvidenceModal({ event, onClose }: { event: ComplianceEvent; onClose: () => void }) {
+  const [imageError, setImageError] = useState(false);
+  const evidenceUrl = getEvidenceUrl(event.screenshotPath);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Evidence viewer"
+    >
+      <div
+        className="glass relative max-h-[90vh] max-w-4xl w-full overflow-hidden rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal header */}
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="grid size-9 place-items-center rounded-lg bg-primary/12 text-primary">
+              <Camera className="size-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">Evidence — EVT-{String(event.id).padStart(5, "0")}</h3>
+              <p className="text-xs text-muted-foreground">
+                {formatTimestamp(event.timestamp)} · Confidence: {(event.confidence * 100).toFixed(0)}%
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="grid size-8 place-items-center rounded-lg hover:bg-muted transition-colors"
+            aria-label="Close evidence viewer"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {/* Image content */}
+        <div className="relative flex items-center justify-center bg-black/40 p-4 min-h-[300px] max-h-[60vh]">
+          {!imageError ? (
+            <img
+              src={evidenceUrl}
+              alt={`Evidence screenshot for event EVT-${String(event.id).padStart(5, "0")}`}
+              className="max-w-full max-h-[55vh] rounded-lg object-contain"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-3 py-12">
+              <ImageOff className="size-12 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Evidence image not available</p>
+              <p className="text-xs text-muted-foreground/70">
+                The screenshot file may have been removed by the retention policy.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Modal footer with event details */}
+        <div className="grid grid-cols-2 gap-3 border-t border-border px-5 py-4 sm:grid-cols-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Event Type</p>
+            <p className="mt-0.5 text-xs font-medium">
+              {event.eventType === "PHONE_ON_TABLE" || event.eventType === "PHONE_HELD_OR_NEAR_PERSON"
+                ? "Mobile Device"
+                : "Printed Material"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Priority</p>
+            <Badge variant="outline" className={`mt-0.5 text-[10px] ${PRIORITY_COLORS[event.priority] ?? ""}`}>
+              {event.priority}
+            </Badge>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Status</p>
+            <Badge variant="outline" className={`mt-0.5 text-[10px] ${STATUS_COLORS[event.status] ?? ""}`}>
+              {event.status}
+            </Badge>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Zone</p>
+            <p className="mt-0.5 text-xs font-medium">{event.zone || "Unknown"}</p>
+          </div>
+        </div>
       </div>
     </div>
   );

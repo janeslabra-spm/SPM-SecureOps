@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Sparkles, FileSearch, AlertCircle, ListChecks, TrendingUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
@@ -27,41 +27,94 @@ const RISK_COLORS: Record<string, string> = {
  * Calls the backend /api/ai/summary endpoint which proxies to Amazon Bedrock
  * Nova Lite. Falls back to a rule-based summary if Bedrock is unavailable.
  */
+/** Minimum seconds between AI analysis requests (cost control). */
+const MIN_REFRESH_INTERVAL_MS = 30_000;
+
 export function AiAssistant({ events, viewContext, className }: AiAssistantProps) {
   const [analysis, setAnalysis] = useState<AiSummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastFetchTimeRef = useRef<number>(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestEventsRef = useRef(events);
+  const latestViewRef = useRef(viewContext);
 
-  const fetchAnalysis = useCallback(async () => {
-    if (events.length === 0) {
+  // Always keep refs current so the deferred fetch uses latest data
+  latestEventsRef.current = events;
+  latestViewRef.current = viewContext;
+
+  // Stable fetch function that always reads from refs
+  const doFetch = useCallback(async () => {
+    const currentEvents = latestEventsRef.current;
+    const currentView = latestViewRef.current;
+
+    if (currentEvents.length === 0) {
       setAnalysis(null);
+      setLoading(false);
       return;
     }
 
     setLoading(true);
     setError(null);
+    lastFetchTimeRef.current = Date.now();
 
     try {
       const result = await apiClient.getAiSummary({
-        events: events.slice(0, 20).map((e) => ({
+        events: currentEvents.slice(0, 20).map((e) => ({
           id: e.id,
           type: e.eventType ?? "unknown",
           confidence: e.confidence ?? 0,
           timestamp: e.timestamp ?? new Date().toISOString(),
         })),
-        viewContext,
+        viewContext: currentView,
       });
       setAnalysis(result);
-    } catch (err) {
+    } catch {
       setError("Analysis unavailable");
     } finally {
       setLoading(false);
     }
-  }, [events, viewContext]);
+  }, []);
+
+  // Derive a stable fingerprint from event IDs
+  const eventsKey = useMemo(
+    () => events.map((e) => e.id).sort().join(","),
+    [events],
+  );
 
   useEffect(() => {
-    fetchAnalysis();
-  }, [fetchAnalysis]);
+    if (events.length === 0) {
+      setAnalysis(null);
+      return;
+    }
+
+    const now = Date.now();
+    const elapsed = now - lastFetchTimeRef.current;
+
+    if (elapsed >= MIN_REFRESH_INTERVAL_MS || lastFetchTimeRef.current === 0) {
+      // Enough time has passed — fetch immediately
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      doFetch();
+    } else if (!timerRef.current) {
+      // Schedule a deferred fetch for when the cooldown expires
+      const delay = MIN_REFRESH_INTERVAL_MS - elapsed;
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        doFetch();
+      }, delay);
+    }
+    // If a timer is already pending, do nothing — it will pick up latest data via refs
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [eventsKey, viewContext, doFetch]);
 
   // Build display rows from analysis
   const rows = analysis

@@ -197,7 +197,7 @@ The system supports using the user's browser webcam as a video source via the `/
 | Response | JSON with `detections` (array of label, confidence, bbox, class_id), `inference_ms`, `frame_width`, `frame_height` |
 | Error | 422 if non-image content type, empty payload, or undecodable image |
 
-The endpoint lazily initializes a shared `InferenceEngine` on first request and reuses it for subsequent calls.
+The endpoint lazily initializes a shared `InferenceEngine` on first request and reuses it for subsequent calls. Detection results are also dispatched to the Compliance Event Engine for automated incident classification (same as the pipeline path).
 
 ## Video Source Types
 

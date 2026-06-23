@@ -1,14 +1,15 @@
 """REST endpoint for browser-based camera frame detection.
 
 Accepts JPEG frames uploaded from the browser (via getUserMedia + canvas),
-runs YOLO inference, and returns detection results. This enables using the
-user's browser camera as the video source instead of a server-side webcam.
+runs YOLO inference, and returns detection results. Also dispatches
+detection events to the compliance engine for incident classification.
 """
 
 from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime, timezone
 
 import cv2
 import numpy as np
@@ -18,7 +19,7 @@ from pydantic import BaseModel, Field
 from backend.core.inference_engine import InferenceEngine
 from backend.core.bbox_extractor import BoundingBoxExtractor
 from backend.core.confidence_scorer import ConfidenceScorer
-from backend.core.pipeline_types import DetectionResult
+from backend.core.pipeline_types import DetectionEvent, DetectionResult
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,29 @@ async def detect_frame(request: Request, frame: UploadFile = File(...)) -> Detec
         )
         for r in results
     ]
+
+    # Dispatch detection event to compliance engine for incident classification
+    dispatcher = getattr(request.app.state, "compliance_dispatcher", None)
+    if dispatcher is not None and results:
+        event = DetectionEvent(
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            camera_id="browser-camera",
+            frame_width=frame_width,
+            frame_height=frame_height,
+            detections=[
+                DetectionResult(
+                    label=r.label,
+                    confidence=r.confidence,
+                    bbox=r.bbox,
+                    class_id=r.class_id,
+                )
+                for r in results
+            ],
+        )
+        try:
+            await dispatcher.dispatch(event)
+        except Exception as exc:
+            logger.warning("Failed to dispatch browser detection event: %s", exc)
 
     return DetectFrameResponse(
         detections=detection_results,

@@ -28,7 +28,13 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/security_monitoring
-      CORS_ORIGINS: "http://localhost,http://localhost:3000"
+      CORS_ORIGINS: "http://localhost:3000"
+      MODEL_PATH: yolov8n.pt
+      CONFIDENCE_THRESHOLD: "0.40"
+      DEVICE: auto
+      SOURCE_MODE: webcam
+      CAMERA_INDEX: "0"
+      RETENTION_DAYS: "7"
     volumes:
       - screenshots:/app/screenshots
       - yolo_models:/root/.cache
@@ -38,7 +44,7 @@ services:
     # devices:
     #   - /dev/video0:/dev/video0
 
-  # React frontend served via Nginx
+  # Next.js frontend
   frontend:
     build:
       context: ./frontend
@@ -46,8 +52,11 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    environment:
+      # Backend API URL accessible from server-side rendering
+      NEXT_PUBLIC_API_URL: http://backend:8000
     ports:
-      - "3000:80"
+      - "3000:3000"
 
 volumes:
   postgres_data:

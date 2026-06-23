@@ -355,10 +355,13 @@ class ComplianceEventEngineImpl:
             # Step 7: Update violation tracker and get entries exceeding threshold
             exceeded = self._update_violation_tracker(event.camera_id, candidates)
 
-            # Step 8: Create placeholder frame for screenshot capture
-            frame = np.zeros(
-                (event.frame_height, event.frame_width, 3), dtype=np.uint8
-            )
+            # Step 8: Use actual frame if available, otherwise create placeholder
+            if event.frame is not None:
+                frame = event.frame
+            else:
+                frame = np.zeros(
+                    (event.frame_height, event.frame_width, 3), dtype=np.uint8
+                )
 
             # Step 9: For each violation exceeding duration threshold, invoke IncidentLogger
             for entry in exceeded:

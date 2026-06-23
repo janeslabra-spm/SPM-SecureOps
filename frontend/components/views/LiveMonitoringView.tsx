@@ -32,6 +32,10 @@ export function LiveMonitoringView() {
   const allEvents = events ?? [];
   const isBrowserCamera = sourcePreset === "browser";
 
+  // For non-browser sources (demo, rtsp, file), show the MJPEG stream
+  // which carries the annotated detection output from the pipeline
+  const showMjpegStream = !isBrowserCamera;
+
   // Compute live stats
   const todayEvents = allEvents.filter((e) => {
     const d = new Date(e.timestamp);
@@ -50,7 +54,7 @@ export function LiveMonitoringView() {
         <StatCard icon={Activity} label="Active Detections" value={String(todayEvents.length)} tone="info" />
         <StatCard icon={Eye} label="Pending Review" value={String(pendingCount)} tone="warning" />
         <StatCard icon={Zap} label="Phone Events" value={String(phoneEvents)} tone="danger" />
-        <StatCard icon={Camera} label="Source" value={isBrowserCamera ? "Browser Cam" : "MJPEG Stream"} tone="success" />
+        <StatCard icon={Camera} label="Source" value={sourcePreset === "browser" ? "Browser Cam" : sourcePreset === "demo" ? "Demo Video" : "Pipeline"} tone="success" />
       </div>
 
       {/* Main content grid */}
@@ -66,7 +70,11 @@ export function LiveMonitoringView() {
               <div>
                 <h2 className="text-sm font-semibold">Live Compliance Monitoring</h2>
                 <p className="text-xs text-muted-foreground">
-                  {isBrowserCamera ? "Browser camera with AI detection" : "Real-time detection overlay"}
+                  {isBrowserCamera
+                    ? "Browser camera with AI detection"
+                    : sourcePreset === "demo"
+                      ? "Demo video with AI detection overlay"
+                      : "Real-time detection overlay"}
                 </p>
               </div>
             </div>
@@ -78,12 +86,12 @@ export function LiveMonitoringView() {
 
           {/* Video area — flexible height */}
           <div className="flex-1">
-            {isBrowserCamera ? (
+            {showMjpegStream ? (
+              <StreamPreview isActive={true} />
+            ) : (
               <div className="p-4 h-full">
                 <BrowserCamera active={true} fps={2} />
               </div>
-            ) : (
-              <StreamPreview isActive={true} />
             )}
           </div>
 
@@ -92,7 +100,13 @@ export function LiveMonitoringView() {
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Camera Source</p>
               <p className="text-sm font-semibold">
-                {isBrowserCamera ? "Browser Camera — User Device" : "BPO Operations Floor — Camera 01"}
+                {isBrowserCamera
+                  ? "Browser Camera — User Device"
+                  : sourcePreset === "demo"
+                    ? "Demo Video — /app/backend/demo.mp4"
+                    : sourcePreset === "rtsp"
+                      ? "Live Camera (RTSP/HTTP)"
+                      : "Custom File Source"}
               </p>
             </div>
             <div className="flex items-center gap-1.5 rounded-full bg-success/20 px-2.5 py-1 ring-1 ring-success/40">

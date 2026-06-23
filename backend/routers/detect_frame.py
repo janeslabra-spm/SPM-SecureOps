@@ -161,6 +161,7 @@ async def detect_frame(request: Request, frame: UploadFile = File(...)) -> Detec
                 )
                 for r in results
             ],
+            frame=img,  # Include actual frame for screenshot capture
         )
         try:
             await dispatcher.dispatch(event)

@@ -60,13 +60,15 @@ const ALL_STATUSES: Array<EventStatus | "All"> = [
 ];
 
 // Construct evidence image URL from screenshot_path
+// The backend stores full paths like "/app/screenshots/incident_20260623.jpg"
+// or relative like "screenshots/incident_20260623.jpg"
+// The static file server is mounted at /screenshots/<filename>
 function getEvidenceUrl(screenshotPath: string): string {
   if (!screenshotPath) return "";
-  // The backend serves screenshots at /screenshots/<filename>
-  // screenshot_path from DB is typically "screenshots/filename.jpg"
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-  // Strip leading "screenshots/" if present since the route already includes it
-  const filename = screenshotPath.replace(/^screenshots[/\\]/, "");
+  // Extract just the filename from whatever path format is stored
+  const parts = screenshotPath.replace(/\\/g, "/").split("/");
+  const filename = parts[parts.length - 1];
   return `${baseUrl}/screenshots/${filename}`;
 }
 
@@ -359,6 +361,7 @@ export function ComplianceReviewView() {
 /** Full-screen modal to display evidence screenshot */
 function EvidenceModal({ event, onClose }: { event: ComplianceEvent; onClose: () => void }) {
   const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
   const evidenceUrl = getEvidenceUrl(event.screenshotPath);
 
   return (
@@ -397,20 +400,32 @@ function EvidenceModal({ event, onClose }: { event: ComplianceEvent; onClose: ()
 
         {/* Image content */}
         <div className="relative flex items-center justify-center bg-black/40 p-4 min-h-[300px] max-h-[60vh]">
+          {imageLoading && !imageError && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="animate-spin size-8 border-2 border-muted border-t-primary rounded-full" />
+            </div>
+          )}
           {!imageError ? (
             <img
               src={evidenceUrl}
               alt={`Evidence screenshot for event EVT-${String(event.id).padStart(5, "0")}`}
-              className="max-w-full max-h-[55vh] rounded-lg object-contain"
-              onError={() => setImageError(true)}
+              className={cn(
+                "max-w-full max-h-[55vh] rounded-lg object-contain",
+                imageLoading && "opacity-0"
+              )}
+              onError={() => { setImageError(true); setImageLoading(false); }}
+              onLoad={() => setImageLoading(false)}
             />
           ) : (
             <div className="flex flex-col items-center gap-3 py-12">
               <ImageOff className="size-12 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Evidence image not available</p>
-              <p className="text-xs text-muted-foreground/70">
-                The screenshot file may have been removed by the retention policy.
+              <p className="text-xs text-muted-foreground/70 text-center max-w-sm">
+                The screenshot file may have been removed by the retention policy or the path could not be resolved.
               </p>
+              <code className="mt-2 rounded bg-muted px-2 py-1 text-[11px] text-muted-foreground break-all max-w-sm">
+                {event.screenshotPath}
+              </code>
             </div>
           )}
         </div>

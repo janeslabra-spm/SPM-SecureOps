@@ -93,6 +93,7 @@ class DetectionEvent:
     frame_width: int
     frame_height: int
     detections: list[DetectionResult]
+    frame: object | None = None  # Optional numpy array for screenshot capture
 
 
 @dataclass

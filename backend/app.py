@@ -74,6 +74,14 @@ async def lifespan(app: FastAPI):
     screenshot_dir = Path(config.screenshots_dir)
     screenshot_dir.mkdir(parents=True, exist_ok=True)
 
+    # If DEMO_VIDEO_PATH is set, configure detection worker to use it
+    demo_video_path = os.environ.get("DEMO_VIDEO_PATH")
+    if demo_video_path:
+        config.source_mode = "sample_video"
+        config.sample_video_path = demo_video_path
+        config.loop_video = True
+        logger.info("Configured detection worker for demo video: %s", demo_video_path)
+
     detection_worker = DetectionWorker(
         config=config,
         db_session_factory=get_session_factory(),
@@ -196,7 +204,8 @@ def create_app() -> FastAPI:
     app.include_router(detect_frame_router)
 
     # Serve screenshot files as static assets
-    screenshots_path = Path("screenshots")
+    # Use absolute path resolution to ensure it works in Docker (WORKDIR=/app)
+    screenshots_path = Path(__file__).resolve().parent.parent / "screenshots"
     screenshots_path.mkdir(parents=True, exist_ok=True)
     app.mount("/screenshots", StaticFiles(directory=str(screenshots_path)), name="screenshots")
 

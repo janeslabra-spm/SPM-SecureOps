@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Play, Square, RefreshCw, Video, FileVideo, Wifi, Camera } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,17 +25,14 @@ const PRESETS: { key: SourcePreset; label: string; icon: typeof Video }[] = [
 
 export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
   const [status, setStatus] = useState<PipelineStatus | null>(null);
+  const [streamActive, setStreamActive] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<SourcePreset>("browser");
   const [customUrl, setCustomUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initialCheckDone = useRef(false);
 
-  const handlePresetChange = useCallback((preset: SourcePreset) => {
-    setSelectedPreset(preset);
-    onSourceChange?.(preset);
-  }, [onSourceChange]);
-
-  // Poll pipeline status
+  // Poll pipeline status and stream availability
   useEffect(() => {
     let mounted = true;
     const poll = async () => {
@@ -44,6 +41,14 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
         if (mounted) setStatus(s);
       } catch {
         // ignore
+      }
+
+      // Also check if the MJPEG stream is active (detection worker running)
+      try {
+        await apiClient.getStreamStatus();
+        if (mounted) setStreamActive(true);
+      } catch {
+        if (mounted) setStreamActive(false);
       }
     };
     poll();
@@ -54,32 +59,28 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
     };
   }, []);
 
-  const handleStart = useCallback(async () => {
-    if (selectedPreset === "browser") return; // browser camera is handled separately
+  // On initial load, if the backend stream is already active (demo video running),
+  // auto-switch to demo mode
+  useEffect(() => {
+    if (!initialCheckDone.current && streamActive && selectedPreset === "browser") {
+      initialCheckDone.current = true;
+      setSelectedPreset("demo");
+      onSourceChange?.("demo");
+    }
+  }, [streamActive, selectedPreset, onSourceChange]);
 
+  const startPipeline = useCallback(async (sourceType: string, sourceId: string | number) => {
     setLoading(true);
     setError(null);
     try {
-      let sourceType: string;
-      let sourceId: string | number;
-
-      switch (selectedPreset) {
-        case "demo":
-          sourceType = "file";
-          sourceId = "/app/backend/demo.mp4";
-          break;
-        case "rtsp":
-          sourceType = "cctv";
-          sourceId = customUrl;
-          break;
-        case "file":
-          sourceType = "file";
-          sourceId = customUrl;
-          break;
-        default:
-          return;
+      // Stop existing pipeline if running
+      if (status?.running) {
+        try {
+          await apiClient.stopPipeline();
+        } catch {
+          // ignore stop errors
+        }
       }
-
       await apiClient.startPipeline(sourceType, sourceId);
       const s = await apiClient.getPipelineStatus();
       setStatus(s);
@@ -89,7 +90,48 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
     } finally {
       setLoading(false);
     }
-  }, [selectedPreset, customUrl]);
+  }, [status?.running]);
+
+  const handlePresetChange = useCallback(async (preset: SourcePreset) => {
+    setSelectedPreset(preset);
+    setError(null);
+    onSourceChange?.(preset);
+
+    // For demo video: if the stream is already active (detection worker running
+    // with demo video), just switch the view. If not, try to start the pipeline.
+    if (preset === "demo" && !streamActive) {
+      await startPipeline("file", "/app/backend/demo.mp4");
+    }
+
+    // If switching back to browser, we don't stop the backend pipeline —
+    // just switch the frontend view to browser camera mode
+  }, [onSourceChange, startPipeline, streamActive]);
+
+  const handleStart = useCallback(async () => {
+    if (selectedPreset === "browser") return;
+
+    let sourceType: string;
+    let sourceId: string | number;
+
+    switch (selectedPreset) {
+      case "demo":
+        sourceType = "file";
+        sourceId = "/app/backend/demo.mp4";
+        break;
+      case "rtsp":
+        sourceType = "cctv";
+        sourceId = customUrl;
+        break;
+      case "file":
+        sourceType = "file";
+        sourceId = customUrl;
+        break;
+      default:
+        return;
+    }
+
+    await startPipeline(sourceType, sourceId);
+  }, [selectedPreset, customUrl, startPipeline]);
 
   const handleStop = useCallback(async () => {
     setLoading(true);
@@ -107,13 +149,16 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
   }, []);
 
   const isRunning = status?.running ?? false;
+  const isStreamOrPipelineActive = streamActive || isRunning;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+    <div className="glass rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Pipeline Source</h3>
-        <Badge variant={isRunning ? "default" : "secondary"}>
-          {isRunning ? `Running · ${status?.current_fps.toFixed(1)} FPS` : "Stopped"}
+        <Badge variant={isStreamOrPipelineActive ? "default" : "secondary"}>
+          {isStreamOrPipelineActive
+            ? `Running · ${status?.current_fps?.toFixed(1) ?? "—"} FPS`
+            : "Stopped"}
         </Badge>
       </div>
 
@@ -123,7 +168,7 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
           <button
             key={key}
             onClick={() => handlePresetChange(key)}
-            disabled={isRunning}
+            disabled={loading}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors
               ${selectedPreset === key
                 ? "bg-primary text-primary-foreground"
@@ -136,11 +181,22 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
         ))}
       </div>
 
-      {/* Browser camera info */}
+      {/* Source-specific info */}
       {selectedPreset === "browser" && (
         <p className="text-xs text-muted-foreground">
           Your browser camera will be used as the video source. Detection runs via the backend API.
         </p>
+      )}
+
+      {selectedPreset === "demo" && (
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p>
+            Demo video source: <code className="rounded bg-muted px-1 py-0.5 text-[11px]">/app/backend/demo.mp4</code>
+          </p>
+          {streamActive && (
+            <p className="text-success font-medium">✓ Stream is active — video feed is live below</p>
+          )}
+        </div>
       )}
 
       {/* URL/path input for rtsp and custom file */}
@@ -158,8 +214,8 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
         />
       )}
 
-      {/* Action buttons (hidden for browser camera) */}
-      {selectedPreset !== "browser" && (
+      {/* Action buttons for non-browser sources */}
+      {selectedPreset !== "browser" && !streamActive && (
         <div className="flex gap-2">
           {!isRunning ? (
             <Button
@@ -186,8 +242,22 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
         </div>
       )}
 
+      {/* Stop button when stream is active */}
+      {selectedPreset !== "browser" && streamActive && isRunning && (
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={handleStop}
+          disabled={loading}
+          className="gap-1.5"
+        >
+          {loading ? <RefreshCw className="size-3.5 animate-spin" /> : <Square className="size-3.5" />}
+          Stop Pipeline
+        </Button>
+      )}
+
       {/* Status info */}
-      {isRunning && status && (
+      {isStreamOrPipelineActive && status && (
         <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
           <div>Frames: <span className="font-medium text-foreground">{status.frames_processed}</span></div>
           <div>Inference: <span className="font-medium text-foreground">{status.last_inference_ms.toFixed(0)}ms</span></div>

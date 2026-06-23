@@ -188,6 +188,8 @@ The `PipelineControls` widget provides in-dashboard start/stop controls for the 
 
 The widget polls `/api/pipeline/status` every 3 seconds and displays live metrics (FPS, frames processed, inference latency, detection count) while the pipeline is running. When "Browser Camera" is selected, the pipeline start/stop buttons are hidden since detection is handled per-frame via the browser camera endpoint.
 
+**Auto-start behavior:** Selecting "Demo Video" starts the pipeline only if the backend stream is not already active. If the detection worker is already running on mount (e.g., auto-started via the `DEMO_VIDEO_PATH` environment variable), the widget detects the active stream and switches the active preset to "Demo Video" automatically. Switching back to "Browser Camera" no longer stops the backend pipeline — it only switches the frontend view to browser camera mode.
+
 ## Browser Camera Detection
 
 The system supports using the user's browser webcam as a video source via the `/api/browser-camera/detect` endpoint. The browser captures frames using `getUserMedia` + canvas, encodes them as JPEG, and POSTs them to the backend for YOLO inference.

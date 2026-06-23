@@ -181,7 +181,7 @@ The `PipelineControls` widget provides in-dashboard start/stop controls for the 
 | Preset | Source Type | Default source_id |
 |--------|------------|-------------------|
 | Browser Camera (default) | browser | Browser webcam via `/api/browser-camera/detect` |
-| Demo Video | `file` | `/app/backend/demo.mp4` |
+| Demo Video | `file` | `/app/backend/demo1.mp4` |
 | Live Camera (RTSP/HTTP) | `cctv` | User-provided URL |
 | Custom File | `file` | User-provided path |
 

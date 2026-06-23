@@ -45,7 +45,7 @@ class AppConfig:
     screenshots_dir: str = "screenshots"
 
     # Desk Zone defaults (percentage values 0-100)
-    desk_zone_x1: int = 25
-    desk_zone_y1: int = 15
-    desk_zone_x2: int = 55
-    desk_zone_y2: int = 90
+    desk_zone_x1: int = 10
+    desk_zone_y1: int = 20
+    desk_zone_x2: int = 90
+    desk_zone_y2: int = 80

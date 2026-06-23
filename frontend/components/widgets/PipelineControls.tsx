@@ -100,7 +100,7 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
     // For demo video: if the stream is already active (detection worker running
     // with demo video), just switch the view. If not, try to start the pipeline.
     if (preset === "demo" && !streamActive) {
-      await startPipeline("file", "/app/backend/demo.mp4");
+      await startPipeline("file", "/app/backend/demo1.mp4");
     }
 
     // If switching back to browser, we don't stop the backend pipeline —
@@ -116,7 +116,7 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
     switch (selectedPreset) {
       case "demo":
         sourceType = "file";
-        sourceId = "/app/backend/demo.mp4";
+        sourceId = "/app/backend/demo1.mp4";
         break;
       case "rtsp":
         sourceType = "cctv";
@@ -191,7 +191,7 @@ export function PipelineControls({ onSourceChange }: PipelineControlsProps) {
       {selectedPreset === "demo" && (
         <div className="text-xs text-muted-foreground space-y-1">
           <p>
-            Demo video source: <code className="rounded bg-muted px-1 py-0.5 text-[11px]">/app/backend/demo.mp4</code>
+            Demo video source: <code className="rounded bg-muted px-1 py-0.5 text-[11px]">/app/backend/demo1.mp4</code>
           </p>
           {streamActive && (
             <p className="text-success font-medium">✓ Stream is active — video feed is live below</p>

@@ -103,7 +103,7 @@ export function LiveMonitoringView() {
                 {isBrowserCamera
                   ? "Browser Camera — User Device"
                   : sourcePreset === "demo"
-                    ? "Demo Video — /app/backend/demo.mp4"
+                    ? "Demo Video — /app/backend/demo1.mp4"
                     : sourcePreset === "rtsp"
                       ? "Live Camera (RTSP/HTTP)"
                       : "Custom File Source"}

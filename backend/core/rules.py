@@ -61,7 +61,7 @@ def classify_incidents(
     """
     people = [detection for detection in detections if detection.label == "person"]
     phones = [detection for detection in detections if detection.label == "cell phone"]
-    documents = [detection for detection in detections if detection.label == "book"]
+    documents = [detection for detection in detections if detection.label == "document"]
 
     candidates: list[IncidentCandidate] = []
 

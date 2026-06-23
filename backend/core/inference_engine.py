@@ -28,10 +28,10 @@ class InferenceEngine:
     TARGET_CLASSES: ClassVar[dict[int, str]] = {
         0: "person",
         67: "cell phone",
-        73: "book",
+        73: "document",
     }
 
-    def __init__(self, model_path: str = "yolov8n.pt", device: str = "auto") -> None:
+    def __init__(self, model_path: str = "yolo11n.pt", device: str = "auto") -> None:
         """Load the YOLOv8n model from the given path.
 
         Args:

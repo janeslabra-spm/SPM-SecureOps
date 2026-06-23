@@ -31,7 +31,7 @@ Real-time computer vision security monitoring system that detects visible cellph
 | Backend | Python 3.12, FastAPI, Uvicorn, SQLAlchemy (async), asyncpg |
 | Frontend | React 19, TypeScript ~5.8, Next.js 15, Tailwind CSS v4, shadcn/ui, Recharts, Axios |
 | Package Manager | pnpm (frontend) |
-| Detection | YOLOv8 Nano (`yolov8n.pt`) via Ultralytics, OpenCV |
+| Detection | YOLO11 Nano (`yolo11n.pt`) via Ultralytics, OpenCV |
 | Database | PostgreSQL |
 | Testing | pytest, Hypothesis (property-based); Vitest, fast-check (frontend) |
 
@@ -92,7 +92,7 @@ Tables are created automatically on first startup via SQLAlchemy.
 uvicorn backend.app:app --reload
 ```
 
-The API will be available at `http://localhost:8000`. On first run, Ultralytics will download the `yolov8n.pt` model.
+The API will be available at `http://localhost:8000`. On first run, Ultralytics will download the `yolo11n.pt` model.
 
 ### 5. Frontend setup
 
@@ -136,9 +136,10 @@ YOLO detections are filtered to two classes: `person` and `cell phone`.
 Incident types:
 
 - **PHONE_ON_TABLE** — phone center is inside the configured desk zone
-- **PHONE_HELD_OR_NEAR_PERSON** — phone overlaps or is within proximity threshold of a person bounding box
+- **PHONE_NEAR_PERSON** — phone overlaps or is within proximity threshold of a person bounding box
+- **DOCUMENT_LEFT_ON_DESK** — book/document center is inside the configured desk zone
 
-If both rules apply, `PHONE_HELD_OR_NEAR_PERSON` takes priority.
+If both rules apply, `PHONE_NEAR_PERSON` takes priority over `PHONE_ON_TABLE` for the same phone.
 
 ## Configuration
 
@@ -146,7 +147,7 @@ All tunable parameters are defined in `backend/config.py` (`AppConfig` dataclass
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `model_path` | `yolov8n.pt` | YOLO model file |
+| `model_path` | `yolo11n.pt` | YOLO model file |
 | `device` | `auto` | Inference device (`auto`, `cpu`, `mps`) |
 | `confidence_threshold` | `0.40` | Minimum detection confidence |
 | `image_size` | `640` | Inference input resolution |

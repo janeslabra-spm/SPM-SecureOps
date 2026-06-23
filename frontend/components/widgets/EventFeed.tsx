@@ -64,9 +64,11 @@ export function EventFeed({ events, loading, maxItems, className }: EventFeedPro
 }
 
 function EventFeedItem({ event, isNew }: { event: ComplianceEvent; isNew: boolean }) {
-  const Icon = event.eventType === "PHONE_ON_TABLE" || event.eventType === "PHONE_HELD_OR_NEAR_PERSON"
-    ? Smartphone
-    : FileText;
+  const isPhoneEvent = event.eventType === "PHONE_ON_TABLE"
+    || event.eventType === "PHONE_NEAR_PERSON"
+    || event.eventType === "PHONE_HELD_OR_NEAR_PERSON";
+
+  const Icon = isPhoneEvent ? Smartphone : FileText;
 
   const timeStr = (() => {
     try {
@@ -76,7 +78,7 @@ function EventFeedItem({ event, isNew }: { event: ComplianceEvent; isNew: boolea
     } catch { return ""; }
   })();
 
-  const detail = event.eventType === "PHONE_ON_TABLE" || event.eventType === "PHONE_HELD_OR_NEAR_PERSON"
+  const detail = isPhoneEvent
     ? "Mobile Device Detected in Restricted Area"
     : "Printed Material Detected in Monitoring Zone";
 

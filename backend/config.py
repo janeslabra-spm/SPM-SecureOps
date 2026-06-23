@@ -15,7 +15,7 @@ class AppConfig:
     database_url: str  # PostgreSQL connection string
 
     # Detection
-    model_path: str = "yolov8n.pt"
+    model_path: str = "yolo11n.pt"
     device: str = "auto"
     confidence_threshold: float = 0.40
     image_size: int = 640

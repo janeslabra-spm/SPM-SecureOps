@@ -15,9 +15,9 @@ class Detection:
 class YoloDetector:
     """Small wrapper around Ultralytics YOLO for person/cell phone/document detection."""
 
-    TARGET_LABELS = {"person", "cell phone", "book"}
+    TARGET_LABELS = {"person", "cell phone", "document"}
 
-    def __init__(self, model_path: str = "yolov8n.pt", device: str | None = None) -> None:
+    def __init__(self, model_path: str = "yolo11n.pt", device: str | None = None) -> None:
         try:
             from ultralytics import YOLO
         except ImportError as exc:

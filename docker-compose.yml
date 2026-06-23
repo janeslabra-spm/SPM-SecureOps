@@ -32,12 +32,22 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/security_monitoring}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       MODEL_PATH: ${MODEL_PATH:-yolo11n.pt}
-      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.40}
+      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.45}
       DEVICE: ${DEVICE:-auto}
       SOURCE_MODE: ${SOURCE_MODE:-webcam}
       CAMERA_INDEX: ${CAMERA_INDEX:-0}
       RETENTION_DAYS: ${RETENTION_DAYS:-7}
       DEMO_VIDEO_PATH: ${DEMO_VIDEO_PATH:-}
+      # AWS Bedrock (AI Compliance Assistant)
+      AWS_BEDROCK_ENABLED: ${AWS_BEDROCK_ENABLED:-false}
+      AWS_BEDROCK_REGION: ${AWS_BEDROCK_REGION:-us-east-1}
+      AWS_BEDROCK_MODEL_ID: ${AWS_BEDROCK_MODEL_ID:-us.amazon.nova-lite-v1:0}
+      AWS_BEDROCK_MAX_TOKENS: ${AWS_BEDROCK_MAX_TOKENS:-300}
+      AWS_BEDROCK_TEMPERATURE: ${AWS_BEDROCK_TEMPERATURE:-0.3}
+      AWS_BEDROCK_CACHE_TTL: ${AWS_BEDROCK_CACHE_TTL:-120}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
     volumes:
       - screenshots:/app/screenshots
       - yolo_models:/root/.cache

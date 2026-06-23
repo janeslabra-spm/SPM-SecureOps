@@ -31,7 +31,8 @@ Real-time computer vision security monitoring system that detects visible cellph
 | Backend | Python 3.12, FastAPI, Uvicorn, SQLAlchemy (async), asyncpg |
 | Frontend | React 19, TypeScript ~5.8, Next.js 15, Tailwind CSS v4, shadcn/ui, Recharts, Axios |
 | Package Manager | pnpm (frontend) |
-| Detection | YOLO11 Nano (`yolo11n.pt`) via Ultralytics, OpenCV |
+| Detection | YOLO11 Small (`yolo11s.pt`) via Ultralytics, OpenCV |
+| AI Analysis | Amazon Bedrock Nova Lite (optional, via boto3) |
 | Database | PostgreSQL |
 | Testing | pytest, Hypothesis (property-based); Vitest, fast-check (frontend) |
 
@@ -92,7 +93,7 @@ Tables are created automatically on first startup via SQLAlchemy.
 uvicorn backend.app:app --reload
 ```
 
-The API will be available at `http://localhost:8000`. On first run, Ultralytics will download the `yolo11n.pt` model.
+The API will be available at `http://localhost:8000`. On first run, Ultralytics will download the `yolo11s.pt` model.
 
 ### 5. Frontend setup
 
@@ -147,14 +148,14 @@ All tunable parameters are defined in `backend/config.py` (`AppConfig` dataclass
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `model_path` | `yolo11n.pt` | YOLO model file |
+| `model_path` | `yolo11s.pt` | YOLO model file |
 | `device` | `auto` | Inference device (`auto`, `cpu`, `mps`) |
-| `confidence_threshold` | `0.25` | Minimum detection confidence |
+| `confidence_threshold` | `0.45` | Minimum detection confidence |
 | `image_size` | `640` | Inference input resolution |
 | `camera_index` | `0` | Webcam device index |
 | `camera_width` | `960` | Capture width |
 | `camera_height` | `540` | Capture height |
-| `duration_threshold` | `0.5s` | Seconds before logging incident |
+| `duration_threshold` | `1.0s` | Seconds before logging incident |
 | `cooldown_seconds` | `5` | Duplicate suppression window |
 | `proximity_pixels` | `80` | Phone-to-person proximity |
 | `ui_fps` | `12` | MJPEG stream frame rate |
@@ -224,6 +225,32 @@ When using `"file"` source type, the pipeline reads from a local video file. If 
 - **DetectionWorker** — captures frames from webcam/video, runs YOLO inference, applies rules, logs incidents with screenshots
 - **RetentionService** — periodically cleans incidents and screenshots older than `retention_days`
 - **PipelineManager** — provides start/stop/config control over the detection pipeline via REST API
+- **BedrockComplianceService** — AI-powered compliance analysis via Amazon Bedrock Nova Lite (optional, degrades gracefully when credentials are unavailable)
+
+### Bedrock AI Integration
+
+The `BedrockComplianceService` (`backend/core/bedrock_service.py`) provides structured incident summarization, risk assessment, and pattern detection using Amazon Nova Lite via the Bedrock Converse API. It is used only *after* detection events occur — never in the real-time inference loop.
+
+**Cost-optimization strategies:**
+- Concise system prompts to minimize input tokens
+- In-memory LRU cache with configurable TTL (default 120s, max 64 entries)
+- Capped max output tokens (default 300)
+- Batch event summarization (one call per request, not per event)
+- Rule-based fallback when Bedrock credentials are missing or calls fail
+
+**Configuration** (via `BedrockConfig` dataclass):
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `enabled` | `false` | Enable/disable Bedrock AI features |
+| `region` | `us-east-1` | AWS region for Bedrock endpoint |
+| `model_id` | `us.amazon.nova-lite-v1:0` | Bedrock model identifier |
+| `max_tokens` | `300` | Max output tokens per response |
+| `temperature` | `0.3` | Sampling temperature |
+| `cache_ttl_seconds` | `120` | Response cache TTL |
+| `cache_max_size` | `64` | Max cached responses |
+
+**Prerequisites:** AWS credentials configured via IAM role (preferred on EC2) or environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`). The `boto3` package must be installed. When credentials are absent, the service falls back to deterministic rule-based analysis.
 
 ## Project Structure
 
@@ -233,7 +260,7 @@ CellphoneMonitoring/
 ├── backend/                    # FastAPI backend
 │   ├── app.py                  # Entry point — lifespan, CORS, routers
 │   ├── config.py               # AppConfig dataclass
-│   ├── core/                   # Detection engine, rules, pipeline
+│   ├── core/                   # Detection engine, rules, pipeline, AI services
 │   ├── db/                     # Async SQLAlchemy models, queries, session
 │   ├── routers/                # API route modules
 │   ├── schemas/                # Pydantic request/response schemas

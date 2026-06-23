@@ -1,8 +1,11 @@
 "use client";
 
-import { Sparkles, FileSearch, AlertCircle, ListChecks } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Sparkles, FileSearch, AlertCircle, ListChecks, TrendingUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiClient } from "@/lib/api-client";
 import type { ComplianceEvent } from "@/lib/types";
+import type { AiSummaryResponse } from "@/lib/types";
 import type { ViewKey } from "@/lib/constants";
 
 export interface AiAssistantProps {
@@ -11,34 +14,85 @@ export interface AiAssistantProps {
   className?: string;
 }
 
-const rows = [
-  {
-    icon: FileSearch,
-    label: "Event Summary",
-    value: "Mobile device detected inside monitored restricted workspace",
-  },
-  {
-    icon: AlertCircle,
-    label: "Review Priority",
-    value: "Needs Review",
-    accent: true,
-  },
-  {
-    icon: AlertCircle,
-    label: "Possible Policy Concern",
-    value: "Restricted-area mobile device presence may require supervisor verification",
-  },
-  {
-    icon: ListChecks,
-    label: "Suggested Follow-up",
-    value: "Review captured evidence and confirm whether approved exception exists",
-  },
-];
+const RISK_COLORS: Record<string, string> = {
+  Low: "text-green-500",
+  Medium: "text-warning",
+  High: "text-orange-500 font-semibold",
+  Critical: "text-destructive font-bold",
+};
 
 /**
- * AiAssistant — Bedrock AI advisory panel showing structured compliance analysis.
+ * AiAssistant — Bedrock AI advisory panel showing live compliance analysis.
+ *
+ * Calls the backend /api/ai/summary endpoint which proxies to Amazon Bedrock
+ * Nova Lite. Falls back to a rule-based summary if Bedrock is unavailable.
  */
 export function AiAssistant({ events, viewContext, className }: AiAssistantProps) {
+  const [analysis, setAnalysis] = useState<AiSummaryResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAnalysis = useCallback(async () => {
+    if (events.length === 0) {
+      setAnalysis(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await apiClient.getAiSummary({
+        events: events.slice(0, 20).map((e) => ({
+          id: e.id,
+          type: e.eventType ?? "unknown",
+          confidence: e.confidence ?? 0,
+          timestamp: e.timestamp ?? new Date().toISOString(),
+        })),
+        viewContext,
+      });
+      setAnalysis(result);
+    } catch (err) {
+      setError("Analysis unavailable");
+    } finally {
+      setLoading(false);
+    }
+  }, [events, viewContext]);
+
+  useEffect(() => {
+    fetchAnalysis();
+  }, [fetchAnalysis]);
+
+  // Build display rows from analysis
+  const rows = analysis
+    ? [
+        {
+          icon: FileSearch,
+          label: "Event Summary",
+          value: analysis.summary,
+        },
+        {
+          icon: AlertCircle,
+          label: "Risk Level",
+          value: analysis.riskLevel,
+          colorClass: RISK_COLORS[analysis.riskLevel] ?? "",
+        },
+        {
+          icon: ListChecks,
+          label: "Active Violations",
+          value:
+            Object.entries(analysis.activeViolations)
+              .map(([type, count]) => `${type}: ${count}`)
+              .join(", ") || "None",
+        },
+        {
+          icon: TrendingUp,
+          label: "Patterns",
+          value: analysis.patterns,
+        },
+      ]
+    : [];
+
   return (
     <section className={cn("glass flex flex-col rounded-2xl p-5", className)}>
       <div className="flex items-center justify-between">
@@ -54,25 +108,45 @@ export function AiAssistant({ events, viewContext, className }: AiAssistantProps
       </div>
 
       <div className="mt-4 flex flex-col gap-3">
-        {rows.map(({ icon: Icon, label, value, accent }) => (
-          <div
-            key={label}
-            className="rounded-xl border border-border bg-card/50 p-3.5"
-          >
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <Icon className="size-3.5" />
-              {label}
-            </div>
-            <p
-              className={cn(
-                "mt-1.5 text-sm leading-relaxed",
-                accent ? "font-semibold text-warning" : "text-foreground",
-              )}
-            >
-              {value}
-            </p>
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            <span className="text-sm">Analyzing events...</span>
           </div>
-        ))}
+        )}
+
+        {error && !loading && (
+          <div className="rounded-xl border border-border bg-card/50 p-3.5">
+            <p className="text-sm text-muted-foreground">{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && events.length === 0 && (
+          <div className="rounded-xl border border-border bg-card/50 p-3.5">
+            <p className="text-sm text-muted-foreground">No events to analyze.</p>
+          </div>
+        )}
+
+        {!loading &&
+          rows.map(({ icon: Icon, label, value, colorClass }) => (
+            <div
+              key={label}
+              className="rounded-xl border border-border bg-card/50 p-3.5"
+            >
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <Icon className="size-3.5" />
+                {label}
+              </div>
+              <p
+                className={cn(
+                  "mt-1.5 text-sm leading-relaxed text-foreground",
+                  colorClass,
+                )}
+              >
+                {value}
+              </p>
+            </div>
+          ))}
       </div>
 
       <div className="mt-4 flex items-center gap-2 self-start rounded-full border border-border bg-card px-3 py-1.5">

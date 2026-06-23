@@ -24,5 +24,8 @@ numpy
 # HTTP client (for MJPEG stream reading via ngrok/HTTPS)
 requests
 
+# AWS SDK (for Bedrock AI compliance analysis)
+boto3
+
 # Development / Testing
 hypothesis

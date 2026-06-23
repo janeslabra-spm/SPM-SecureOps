@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.config import AppConfig
 from backend.db.session import configure, get_session_factory, init_db
 from backend.db.audit_queries import insert_audit_log
+from backend.routers.ai import router as ai_router
 from backend.routers.audit import router as audit_router
 from backend.routers.detect_frame import router as detect_frame_router
 from backend.routers.health import router as health_router, set_detection_engine_active
@@ -29,6 +30,7 @@ from backend.routers.incidents import router as incidents_router
 from backend.routers.pipeline import router as pipeline_router
 from backend.routers.stream import router as stream_router
 from backend.routers.zones import router as zones_router
+from backend.core.bedrock_service import BedrockComplianceService, BedrockConfig
 from backend.core.compliance_engine import ComplianceEventEngineImpl
 from backend.core.event_dispatcher import ComplianceEventDispatcher
 from backend.core.pipeline_manager import PipelineManager
@@ -150,6 +152,22 @@ async def lifespan(app: FastAPI):
     await compliance_dispatcher.start()
     app.state.compliance_dispatcher = compliance_dispatcher
 
+    # Initialize Bedrock AI compliance service (optional — disabled if no credentials)
+    bedrock_config = BedrockConfig(
+        enabled=bool(os.environ.get("AWS_BEDROCK_ENABLED", "").lower() in ("1", "true", "yes")),
+        region=os.environ.get("AWS_BEDROCK_REGION", "us-east-1"),
+        model_id=os.environ.get("AWS_BEDROCK_MODEL_ID", "us.amazon.nova-lite-v1:0"),
+        max_tokens=int(os.environ.get("AWS_BEDROCK_MAX_TOKENS", "300")),
+        temperature=float(os.environ.get("AWS_BEDROCK_TEMPERATURE", "0.3")),
+        cache_ttl_seconds=int(os.environ.get("AWS_BEDROCK_CACHE_TTL", "120")),
+    )
+    bedrock_service = BedrockComplianceService(bedrock_config)
+    app.state.bedrock_service = bedrock_service
+    if bedrock_service.available:
+        logger.info("Bedrock AI compliance service is ACTIVE (model=%s)", bedrock_config.model_id)
+    else:
+        logger.info("Bedrock AI compliance service is INACTIVE (fallback mode)")
+
     logger.info("Security Monitoring System started successfully.")
 
     # Log system startup to audit trail
@@ -222,6 +240,7 @@ def create_app() -> FastAPI:
     app.include_router(audit_router)
     app.include_router(pipeline_router)
     app.include_router(detect_frame_router)
+    app.include_router(ai_router)
 
     # Serve screenshot files as static assets
     # Use absolute path resolution to ensure it works in Docker (WORKDIR=/app)

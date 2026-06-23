@@ -28,7 +28,7 @@ const RISK_COLORS: Record<string, string> = {
  * Nova Lite. Falls back to a rule-based summary if Bedrock is unavailable.
  */
 /** Minimum seconds between AI analysis requests (cost control). */
-const MIN_REFRESH_INTERVAL_MS = 30_000;
+const MIN_REFRESH_INTERVAL_MS = 60_000;
 
 export function AiAssistant({ events, viewContext, className }: AiAssistantProps) {
   const [analysis, setAnalysis] = useState<AiSummaryResponse | null>(null);

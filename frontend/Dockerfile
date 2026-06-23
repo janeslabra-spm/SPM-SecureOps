@@ -19,6 +19,9 @@ COPY . .
 
 # Enable Next.js standalone output for Docker
 ENV NEXT_TELEMETRY_DISABLED=1
+# Set empty API URL at build time so the compiled client uses relative URLs.
+# The Next.js server rewrites will proxy requests to the backend container.
+ENV NEXT_PUBLIC_API_URL=""
 RUN npm run build
 
 # Stage 3: Production runner

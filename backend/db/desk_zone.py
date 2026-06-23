@@ -12,6 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.db.models import DeskZoneConfig
 
 
+def _utcnow_naive() -> datetime:
+    """Return current UTC time as a timezone-naive datetime.
+
+    The database column is TIMESTAMP WITHOUT TIME ZONE, so we must
+    not pass timezone-aware values to asyncpg.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 async def get_desk_zone(session: AsyncSession) -> DeskZoneConfig:
     """Get the current desk zone config. Creates default row if none exists.
 
@@ -35,7 +44,7 @@ async def get_desk_zone(session: AsyncSession) -> DeskZoneConfig:
             y1_percent=35,
             x2_percent=80,
             y2_percent=75,
-            updated_at=datetime.now(timezone.utc),
+            updated_at=_utcnow_naive(),
         )
         session.add(config)
         await session.commit()
@@ -77,7 +86,7 @@ async def upsert_desk_zone(
             y1_percent=y1_percent,
             x2_percent=x2_percent,
             y2_percent=y2_percent,
-            updated_at=datetime.now(timezone.utc),
+            updated_at=_utcnow_naive(),
         )
         session.add(config)
     else:
@@ -85,7 +94,7 @@ async def upsert_desk_zone(
         config.y1_percent = y1_percent
         config.x2_percent = x2_percent
         config.y2_percent = y2_percent
-        config.updated_at = datetime.now(timezone.utc)
+        config.updated_at = _utcnow_naive()
 
     await session.commit()
     await session.refresh(config)

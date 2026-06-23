@@ -3,10 +3,11 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    env_file: .env
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: security_monitoring
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-security_monitoring}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -26,15 +27,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/security_monitoring
-      CORS_ORIGINS: "http://localhost:3000"
-      MODEL_PATH: yolov8n.pt
-      CONFIDENCE_THRESHOLD: "0.40"
-      DEVICE: auto
-      SOURCE_MODE: webcam
-      CAMERA_INDEX: "0"
-      RETENTION_DAYS: "7"
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/security_monitoring}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      MODEL_PATH: ${MODEL_PATH:-yolov8n.pt}
+      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.40}
+      DEVICE: ${DEVICE:-auto}
+      SOURCE_MODE: ${SOURCE_MODE:-webcam}
+      CAMERA_INDEX: ${CAMERA_INDEX:-0}
+      RETENTION_DAYS: ${RETENTION_DAYS:-7}
+      DEMO_VIDEO_PATH: ${DEMO_VIDEO_PATH:-}
     volumes:
       - screenshots:/app/screenshots
       - yolo_models:/root/.cache
@@ -53,8 +56,10 @@ services:
     depends_on:
       - backend
     environment:
-      # Backend API URL accessible from server-side rendering
-      NEXT_PUBLIC_API_URL: http://backend:8000
+      # Runtime variable used by Next.js rewrites to proxy API calls to backend
+      BACKEND_URL: http://backend:8000
+      # NOT used at runtime (baked at build), but kept for documentation
+      NEXT_PUBLIC_API_URL: ""
     ports:
       - "3000:3000"
 

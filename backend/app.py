@@ -163,6 +163,12 @@ def create_app() -> FastAPI:
     else:
         cors_origins = ["http://localhost:5173"]
 
+    # Always allow requests from the frontend Docker container (Next.js rewrites)
+    internal_origins = ["http://frontend:3000", "http://localhost:3000"]
+    for origin in internal_origins:
+        if origin not in cors_origins:
+            cors_origins.append(origin)
+
     app = FastAPI(
         title="Security Monitoring System",
         description="Computer vision security monitoring API for detecting policy violations.",

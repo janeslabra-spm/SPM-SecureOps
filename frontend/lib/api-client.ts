@@ -13,8 +13,11 @@ import type {
 } from "./types";
 import { API_TIMEOUT } from "./constants";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// In Docker production builds, NEXT_PUBLIC_API_URL is set to "" at build time
+// so the browser uses relative URLs (e.g., /health, /incidents).
+// Next.js rewrites then proxy these to the backend container.
+// In local dev, .env.local sets NEXT_PUBLIC_API_URL=http://localhost:8000.
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export class ApiClient {
   private client: AxiosInstance;

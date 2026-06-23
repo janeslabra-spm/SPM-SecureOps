@@ -58,6 +58,8 @@ DATABASE_URL=postgresql+asyncpg://postgres:yourpassword@localhost:5432/security_
 CORS_ORIGINS=http://localhost:3000
 ```
 
+The frontend uses an optional `BACKEND_URL` environment variable (default: `http://backend:8000`) to configure Next.js rewrites that proxy `/api/*`, `/health`, `/incidents/*`, `/zones/*`, and `/stream/*` requests to the backend. For local development without Docker, set `BACKEND_URL=http://localhost:8000` in the frontend's `.env.local`.
+
 ### 2. Backend setup
 
 ```bash
@@ -100,7 +102,13 @@ pnpm install
 pnpm dev
 ```
 
-The frontend will be available at `http://localhost:3000`.
+The frontend will be available at `http://localhost:3000`. API requests are proxied to the backend via Next.js rewrites (configured in `next.config.ts`). For local dev, create `frontend/.env.local`:
+
+```env
+BACKEND_URL=http://localhost:8000
+```
+
+In Docker Compose the default (`http://backend:8000`) resolves to the backend service automatically.
 
 ## API Endpoints
 

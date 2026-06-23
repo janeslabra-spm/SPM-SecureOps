@@ -11,7 +11,6 @@ import { ComplianceReviewView } from "@/components/views/ComplianceReviewView";
 import { LiveMonitoringView } from "@/components/views/LiveMonitoringView";
 import { AnalyticsView } from "@/components/views/AnalyticsView";
 import { SettingsView } from "@/components/views/SettingsView";
-import { AwsServicesView } from "@/components/views/AwsServicesView";
 import { SystemStatusView } from "@/components/views/SystemStatusView";
 
 const meta: Record<ViewKey, { title: string; subtitle: string }> = {
@@ -23,7 +22,6 @@ const meta: Record<ViewKey, { title: string; subtitle: string }> = {
   events: { title: "Compliance Events", subtitle: "Incoming events awaiting review" },
   review: { title: "Compliance Review", subtitle: "Structured review and resolution workflow" },
   analytics: { title: "Analytics", subtitle: "Compliance monitoring trends and distribution" },
-  aws: { title: "AWS Services", subtitle: "Cloud service integration and health" },
   status: { title: "System Status", subtitle: "Component health across the platform" },
   settings: { title: "Settings", subtitle: "Configuration and governance controls" },
 };
@@ -75,8 +73,6 @@ function ViewContent({ activeView }: { activeView: ViewKey }) {
       return <ComplianceReviewView />;
     case "analytics":
       return <AnalyticsView />;
-    case "aws":
-      return <AwsServicesView />;
     case "status":
       return <SystemStatusView />;
     case "settings":

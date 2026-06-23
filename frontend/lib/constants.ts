@@ -1,11 +1,10 @@
-/** Client-side navigation state identifier for the 8 dashboard views */
+/** Client-side navigation state identifier for the dashboard views */
 export type ViewKey =
   | "dashboard"
   | "live"
   | "events"
   | "review"
   | "analytics"
-  | "aws"
   | "status"
   | "settings";
 
@@ -16,7 +15,6 @@ export const VIEW_KEYS: ViewKey[] = [
   "events",
   "review",
   "analytics",
-  "aws",
   "status",
   "settings",
 ] as const;

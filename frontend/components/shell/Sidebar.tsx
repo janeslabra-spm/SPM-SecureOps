@@ -6,7 +6,6 @@ import {
   ShieldAlert,
   ClipboardCheck,
   BarChart3,
-  Cloud,
   Activity,
   Settings,
   ChevronLeft,
@@ -21,7 +20,6 @@ const nav: { key: ViewKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "events", label: "Compliance Events", icon: ShieldAlert },
   { key: "review", label: "Compliance Review", icon: ClipboardCheck },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
-  { key: "aws", label: "AWS Services", icon: Cloud },
   { key: "status", label: "System Status", icon: Activity },
   { key: "settings", label: "Settings", icon: Settings },
 ];

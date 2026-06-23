@@ -85,7 +85,6 @@ describe("useViewState", () => {
       "events",
       "review",
       "analytics",
-      "aws",
       "status",
       "settings",
     ] as const;

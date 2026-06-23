@@ -44,8 +44,8 @@ export function BrowserCamera({ active = true, fps = 2, onDetections }: BrowserC
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 960 },
-          height: { ideal: 540 },
+          width: { ideal: 640 },
+          height: { ideal: 360 },
           facingMode: "environment",
         },
         audio: false,
@@ -100,8 +100,9 @@ export function BrowserCamera({ active = true, fps = 2, onDetections }: BrowserC
 
   // Capture a frame and send it to backend
   const captureAndDetect = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || detecting) return;
+    if (!videoRef.current || !canvasRef.current) return;
     if (videoRef.current.readyState < 2) return; // not enough data
+    if (detecting) return; // skip if previous request still in-flight
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -115,9 +116,9 @@ export function BrowserCamera({ active = true, fps = 2, onDetections }: BrowserC
     // Draw current frame to canvas
     ctx.drawImage(video, 0, 0);
 
-    // Convert to JPEG blob
+    // Convert to JPEG blob (lower quality for faster upload)
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/jpeg", 0.85);
+      canvas.toBlob(resolve, "image/jpeg", 0.70);
     });
 
     if (!blob) return;

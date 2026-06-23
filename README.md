@@ -154,10 +154,10 @@ All tunable parameters are defined in `backend/config.py` (`AppConfig` dataclass
 | `camera_index` | `0` | Webcam device index |
 | `camera_width` | `960` | Capture width |
 | `camera_height` | `540` | Capture height |
-| `duration_threshold` | `1.0s` | Seconds before logging incident |
-| `cooldown_seconds` | `10` | Duplicate suppression window |
+| `duration_threshold` | `0.5s` | Seconds before logging incident |
+| `cooldown_seconds` | `5` | Duplicate suppression window |
 | `proximity_pixels` | `80` | Phone-to-person proximity |
-| `ui_fps` | `2` | MJPEG stream frame rate |
+| `ui_fps` | `12` | MJPEG stream frame rate |
 | `retention_days` | `7` | Days before old data cleanup |
 
 ## Frontend Views
@@ -171,7 +171,6 @@ The frontend uses client-side view switching within a single Shell layout (no pa
 | Compliance Events | Event list with priority badges, AI assistant panel |
 | Compliance Review | Searchable incident table with workflow actions and CSV export |
 | Analytics | Charts (daily events, category breakdown, review trends) |
-| AWS Services | Service health cards for EC2, S3, Bedrock, CloudWatch |
 | System Status | Component health progress bars (Camera, AI, Backend, DB, AWS, Retention) |
 | Settings | Desk zone config, monitoring toggles, data governance |
 

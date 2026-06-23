@@ -18,7 +18,7 @@ class AppConfig:
     model_path: str = "yolo11n.pt"
     device: str = "auto"
     confidence_threshold: float = 0.40
-    image_size: int = 640
+    image_size: int = 480
 
     # Video source
     source_mode: str = "webcam"  # "webcam" | "sample_video"
@@ -29,12 +29,12 @@ class AppConfig:
     loop_video: bool = True
 
     # Incident thresholds
-    duration_threshold: float = 1.0  # seconds before logging
-    cooldown_seconds: int = 10  # suppress duplicates within this window
+    duration_threshold: float = 0.5  # seconds before logging
+    cooldown_seconds: int = 5  # suppress duplicates within this window
     proximity_pixels: int = 80  # phone-to-person proximity
 
     # Streaming
-    ui_fps: int = 2  # frames per second for MJPEG stream
+    ui_fps: int = 12  # frames per second for MJPEG stream
 
     # Retention
     retention_days: int = 7
@@ -45,7 +45,7 @@ class AppConfig:
     screenshots_dir: str = "screenshots"
 
     # Desk Zone defaults (percentage values 0-100)
-    desk_zone_x1: int = 20
-    desk_zone_y1: int = 35
-    desk_zone_x2: int = 80
-    desk_zone_y2: int = 75
+    desk_zone_x1: int = 25
+    desk_zone_y1: int = 15
+    desk_zone_x2: int = 55
+    desk_zone_y2: int = 90

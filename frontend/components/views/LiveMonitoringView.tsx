@@ -1,0 +1,72 @@
+"use client";
+
+import { useCallback } from "react";
+import { Cctv, ScanLine } from "lucide-react";
+
+import { usePolling } from "@/hooks/usePolling";
+import { useApiClient } from "@/hooks/useApiClient";
+import { POLLING_INTERVALS } from "@/lib/constants";
+import { mapBackendIncidents, BackendIncident } from "@/lib/incident-mapper";
+import type { ComplianceEvent } from "@/lib/types";
+
+import { StreamPreview } from "@/components/widgets/StreamPreview";
+import { EventFeed } from "@/components/widgets/EventFeed";
+
+export function LiveMonitoringView() {
+  const api = useApiClient();
+
+  const eventsFetcher = useCallback(async (): Promise<ComplianceEvent[]> => {
+    const raw = await api.getIncidents();
+    return mapBackendIncidents(raw as BackendIncident[]);
+  }, [api]);
+
+  const { data: events, loading: eventsLoading } = usePolling<ComplianceEvent[]>(
+    eventsFetcher,
+    POLLING_INTERVALS.DASHBOARD
+  );
+
+  return (
+    <div data-testid="view-live" className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      {/* Live stream card */}
+      <section className="glass overflow-hidden rounded-2xl xl:col-span-2">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="grid size-8 place-items-center rounded-lg bg-primary/12 text-primary">
+              <Cctv className="size-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold">Live Compliance Monitoring</h2>
+              <p className="text-xs text-muted-foreground">Real-time detection overlay</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-full bg-danger/15 px-2.5 py-1 ring-1 ring-danger/30">
+            <span className="size-2 rounded-full bg-danger pulse-dot" />
+            <span className="text-xs font-semibold tracking-wide text-danger">LIVE</span>
+          </div>
+        </div>
+
+        <StreamPreview isActive={true} />
+
+        <div className="flex items-center justify-between border-t border-border px-5 py-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Camera Source</p>
+            <p className="text-sm font-semibold">BPO Operations Floor — Camera 01</p>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full bg-success/20 px-2.5 py-1 ring-1 ring-success/40">
+            <ScanLine className="size-3.5 text-success" />
+            <span className="text-xs font-medium text-success">AI Detection Active</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Event Feed */}
+      <EventFeed
+        events={events ?? []}
+        loading={eventsLoading && !events}
+        maxItems={30}
+      />
+    </div>
+  );
+}
+
+export default LiveMonitoringView;

@@ -24,8 +24,12 @@ from backend.db.audit_queries import insert_audit_log
 from backend.routers.audit import router as audit_router
 from backend.routers.health import router as health_router, set_detection_engine_active
 from backend.routers.incidents import router as incidents_router
+from backend.routers.pipeline import router as pipeline_router
 from backend.routers.stream import router as stream_router
 from backend.routers.zones import router as zones_router
+from backend.core.compliance_engine import ComplianceEventEngineImpl
+from backend.core.event_dispatcher import ComplianceEventDispatcher
+from backend.core.pipeline_manager import PipelineManager
 from backend.workers.detection_worker import DetectionWorker
 from backend.workers.retention_service import RetentionService
 
@@ -86,6 +90,27 @@ async def lifespan(app: FastAPI):
     await retention_service.start()
     app.state.retention_service = retention_service
 
+    # Initialize pipeline manager
+    pipeline_manager = PipelineManager(
+        config=config,
+        db_session_factory=get_session_factory(),
+    )
+    app.state.pipeline_manager = pipeline_manager
+
+    # Initialize compliance event engine
+    compliance_engine = ComplianceEventEngineImpl(
+        session_factory=get_session_factory(),
+        screenshots_dir=config.screenshots_dir,
+        config=config,
+    )
+    await compliance_engine.start()
+    app.state.compliance_engine = compliance_engine
+
+    # Initialize compliance event dispatcher
+    compliance_dispatcher = ComplianceEventDispatcher(event_engine=compliance_engine)
+    await compliance_dispatcher.start()
+    app.state.compliance_dispatcher = compliance_dispatcher
+
     logger.info("Security Monitoring System started successfully.")
 
     # Log system startup to audit trail
@@ -108,6 +133,9 @@ async def lifespan(app: FastAPI):
     set_detection_engine_active(False)
 
     await retention_service.stop()
+
+    await compliance_dispatcher.stop()
+    await compliance_engine.stop()
 
     logger.info("Security Monitoring System shut down.")
 
@@ -147,6 +175,7 @@ def create_app() -> FastAPI:
     app.include_router(incidents_router)
     app.include_router(zones_router)
     app.include_router(audit_router)
+    app.include_router(pipeline_router)
 
     return app
 

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from math import hypot
 
 from backend.core.detector import Detection
 
+
+logger = logging.getLogger(__name__)
 
 PHONE_ON_TABLE = "PHONE_ON_TABLE"
 PHONE_NEAR_PERSON = "PHONE_NEAR_PERSON"
@@ -40,7 +43,7 @@ def table_zone_from_percent(
 
 def classify_incidents(
     detections: list[Detection],
-    table_zone: tuple[int, int, int, int],
+    table_zone: tuple[int, int, int, int] | None,
     proximity_pixels: int = 80,
 ) -> list[IncidentCandidate]:
     """Classify detections into security violation incidents.
@@ -51,6 +54,10 @@ def classify_incidents(
     - DOCUMENT_LEFT_ON_DESK: book/document center is inside the desk zone
 
     PHONE_NEAR_PERSON takes priority over PHONE_ON_TABLE for the same phone.
+
+    If table_zone is None, zone-based classifications (PHONE_ON_TABLE and
+    DOCUMENT_LEFT_ON_DESK) are skipped. A WARNING is logged for skipped
+    document classifications indicating no Desk_Zone is defined.
     """
     people = [detection for detection in detections if detection.label == "person"]
     phones = [detection for detection in detections if detection.label == "cell phone"]
@@ -73,7 +80,7 @@ def classify_incidents(
             )
             continue
 
-        if _center_inside(phone.bbox, table_zone):
+        if table_zone is not None and _center_inside(phone.bbox, table_zone):
             candidates.append(
                 IncidentCandidate(
                     incident_type=PHONE_ON_TABLE,
@@ -83,15 +90,21 @@ def classify_incidents(
             )
 
     # Evaluate each document/book independently
-    for doc in documents:
-        if _center_inside(doc.bbox, table_zone):
-            candidates.append(
-                IncidentCandidate(
-                    incident_type=DOCUMENT_LEFT_ON_DESK,
-                    confidence=doc.confidence,
-                    phone_bbox=doc.bbox,
-                )
+    if table_zone is None:
+        if documents:
+            logger.warning(
+                "No Desk_Zone configured; skipping DOCUMENT_LEFT_ON_DESK classification"
             )
+    else:
+        for doc in documents:
+            if _center_inside(doc.bbox, table_zone):
+                candidates.append(
+                    IncidentCandidate(
+                        incident_type=DOCUMENT_LEFT_ON_DESK,
+                        confidence=doc.confidence,
+                        phone_bbox=doc.bbox,
+                    )
+                )
 
     return candidates
 

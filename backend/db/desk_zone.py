@@ -24,7 +24,7 @@ def _utcnow_naive() -> datetime:
 async def get_desk_zone(session: AsyncSession) -> DeskZoneConfig:
     """Get the current desk zone config. Creates default row if none exists.
 
-    Default values: x1=20, y1=35, x2=80, y2=75
+    Default values: x1=20, y1=10, x2=80, y2=90
 
     Args:
         session: An active async database session.
@@ -41,9 +41,9 @@ async def get_desk_zone(session: AsyncSession) -> DeskZoneConfig:
         config = DeskZoneConfig(
             id=1,
             x1_percent=20,
-            y1_percent=35,
+            y1_percent=10,
             x2_percent=80,
-            y2_percent=75,
+            y2_percent=90,
             updated_at=_utcnow_naive(),
         )
         session.add(config)

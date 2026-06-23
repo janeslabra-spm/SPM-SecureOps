@@ -15,9 +15,9 @@ class AppConfig:
     database_url: str  # PostgreSQL connection string
 
     # Detection
-    model_path: str = "yolo11n.pt"
+    model_path: str = "yolo11s.pt"
     device: str = "auto"
-    confidence_threshold: float = 0.30
+    confidence_threshold: float = 0.25
     image_size: int = 640
 
     # Video source
@@ -46,7 +46,7 @@ class AppConfig:
 
     # Desk Zone defaults (percentage values 0-100)
     # Covers the white desk surface in the overhead CCTV view
-    desk_zone_x1: int = 5
-    desk_zone_y1: int = 35
-    desk_zone_x2: int = 95
-    desk_zone_y2: int = 70
+    desk_zone_x1: int = 20
+    desk_zone_y1: int = 10
+    desk_zone_x2: int = 80
+    desk_zone_y2: int = 90

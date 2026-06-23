@@ -149,7 +149,7 @@ All tunable parameters are defined in `backend/config.py` (`AppConfig` dataclass
 |-----------|---------|-------------|
 | `model_path` | `yolo11n.pt` | YOLO model file |
 | `device` | `auto` | Inference device (`auto`, `cpu`, `mps`) |
-| `confidence_threshold` | `0.40` | Minimum detection confidence |
+| `confidence_threshold` | `0.25` | Minimum detection confidence |
 | `image_size` | `640` | Inference input resolution |
 | `camera_index` | `0` | Webcam device index |
 | `camera_width` | `960` | Capture width |
@@ -159,6 +159,12 @@ All tunable parameters are defined in `backend/config.py` (`AppConfig` dataclass
 | `proximity_pixels` | `80` | Phone-to-person proximity |
 | `ui_fps` | `12` | MJPEG stream frame rate |
 | `retention_days` | `7` | Days before old data cleanup |
+| `desk_zone_x1` | `20` | Left boundary of desk zone (%) |
+| `desk_zone_y1` | `10` | Top boundary of desk zone (%) |
+| `desk_zone_x2` | `80` | Right boundary of desk zone (%) |
+| `desk_zone_y2` | `90` | Bottom boundary of desk zone (%) |
+
+> **Note:** On startup the backend writes the `desk_zone_*` values from `AppConfig` into the database, overriding any previously saved zone configuration. To persist custom zones across restarts, update the values in `backend/config.py` (or the environment/config source) rather than relying solely on the Settings UI.
 
 ## Frontend Views
 

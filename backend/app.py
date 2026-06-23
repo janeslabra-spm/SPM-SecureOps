@@ -70,6 +70,26 @@ async def lifespan(app: FastAPI):
         logger.error("Failed to connect to database: %s", exc)
         sys.exit(1)
 
+    # Force-update desk zone to match config defaults (overrides stale DB values)
+    try:
+        from backend.db.desk_zone import upsert_desk_zone
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            await upsert_desk_zone(
+                session,
+                x1_percent=config.desk_zone_x1,
+                y1_percent=config.desk_zone_y1,
+                x2_percent=config.desk_zone_x2,
+                y2_percent=config.desk_zone_y2,
+            )
+        logger.info(
+            "Desk zone set to: x1=%d%%, y1=%d%%, x2=%d%%, y2=%d%%",
+            config.desk_zone_x1, config.desk_zone_y1,
+            config.desk_zone_x2, config.desk_zone_y2,
+        )
+    except Exception as exc:
+        logger.warning("Failed to update desk zone on startup: %s", exc)
+
     # Start detection worker
     screenshot_dir = Path(config.screenshots_dir)
     screenshot_dir.mkdir(parents=True, exist_ok=True)

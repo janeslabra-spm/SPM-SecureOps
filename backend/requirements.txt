@@ -17,7 +17,7 @@ python-dotenv
 python-multipart
 
 # Computer vision
-opencv-python
+opencv-python-headless
 ultralytics
 numpy
 

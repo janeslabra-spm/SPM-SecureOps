@@ -21,5 +21,8 @@ opencv-python-headless
 ultralytics
 numpy
 
+# HTTP client (for MJPEG stream reading via ngrok/HTTPS)
+requests
+
 # Development / Testing
 hypothesis

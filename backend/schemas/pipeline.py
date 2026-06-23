@@ -33,7 +33,7 @@ class DetectionResultSchema(BaseModel):
 class PipelineStartRequest(BaseModel):
     """Request body for POST /api/pipeline/start."""
 
-    source_type: Literal["webcam", "cctv"]
+    source_type: Literal["webcam", "cctv", "file"]
     source_id: int | str
 
     @field_validator("source_id")
@@ -43,15 +43,19 @@ class PipelineStartRequest(BaseModel):
 
         Webcam: integer 0–10
         CCTV: string starting with rtsp:// or http://
+        File: string file path
         """
         if info.data.get("source_type") == "webcam":
             if not isinstance(v, int) or v < 0 or v > 10:
                 raise ValueError("Webcam source_id must be integer 0–10")
         elif info.data.get("source_type") == "cctv":
             if not isinstance(v, str) or not (
-                v.startswith("rtsp://") or v.startswith("http://")
+                v.startswith("rtsp://") or v.startswith("http://") or v.startswith("https://")
             ):
-                raise ValueError("CCTV source_id must be rtsp:// or http:// URL")
+                raise ValueError("CCTV source_id must be rtsp://, http://, or https:// URL")
+        elif info.data.get("source_type") == "file":
+            if not isinstance(v, str) or len(v) == 0:
+                raise ValueError("File source_id must be a non-empty file path")
         return v
 
 

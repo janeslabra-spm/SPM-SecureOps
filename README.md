@@ -115,7 +115,7 @@ The frontend will be available at `http://localhost:3000`.
 | PUT | `/api/zones` | Update desk zone |
 | GET | `/api/audit` | Audit trail logs |
 | GET | `/api/pipeline/status` | Pipeline running state and metrics |
-| POST | `/api/pipeline/start` | Start detection pipeline |
+| POST | `/api/pipeline/start` | Start detection pipeline (source_type: "webcam", "cctv", or "file") |
 | POST | `/api/pipeline/stop` | Stop detection pipeline |
 | GET | `/api/pipeline/detections` | Latest detection results |
 | PUT | `/api/pipeline/config` | Update runtime pipeline config |
@@ -157,13 +157,37 @@ The frontend uses client-side view switching within a single Shell layout (no pa
 | View | Description |
 |------|-------------|
 | Dashboard | Overview with status cards, event feed, analytics, governance badges |
-| Live Monitoring | Full-size MJPEG feed with real-time detection metrics |
+| Live Monitoring | Full-size MJPEG feed with real-time detection metrics, pipeline controls |
 | Compliance Events | Event list with priority badges, AI assistant panel |
 | Compliance Review | Searchable incident table with workflow actions and CSV export |
 | Analytics | Charts (daily events, category breakdown, review trends) |
 | AWS Services | Service health cards for EC2, S3, Bedrock, CloudWatch |
 | System Status | Component health progress bars (Camera, AI, Backend, DB, AWS, Retention) |
 | Settings | Desk zone config, monitoring toggles, data governance |
+
+### Pipeline Controls Widget
+
+The `PipelineControls` widget provides in-dashboard start/stop controls for the detection pipeline with three source presets:
+
+| Preset | Source Type | Default source_id |
+|--------|------------|-------------------|
+| Demo Video | `file` | `/app/backend/demo.mp4` |
+| Live Camera (RTSP/HTTP) | `cctv` | User-provided URL |
+| Custom File | `file` | User-provided path |
+
+The widget polls `/api/pipeline/status` every 3 seconds and displays live metrics (FPS, frames processed, inference latency, detection count) while the pipeline is running.
+
+## Video Source Types
+
+The pipeline supports three source types via POST `/api/pipeline/start`:
+
+| Source Type | `source_id` | Description |
+|-------------|-------------|-------------|
+| `webcam` | Integer 0–10 | Local webcam device index |
+| `cctv` | `rtsp://` or `http://` URL | Network CCTV stream |
+| `file` | File path string | Local video file (e.g., MP4, AVI) with optional looping |
+
+When using `"file"` source type, the pipeline reads from a local video file. If `loop` is enabled in the frame capture config, the video restarts from the beginning when it reaches the end — useful for demo/testing with sample footage.
 
 ## Background Services
 

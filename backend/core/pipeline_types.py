@@ -26,8 +26,9 @@ class SourceUnavailableError(Exception):
 class FrameCaptureConfig:
     """Configuration for the frame capture service."""
 
-    source_type: Literal["webcam", "cctv"]
-    source_id: int | str  # camera index or URL
+    source_type: Literal["webcam", "cctv", "file"]
+    source_id: int | str  # camera index, URL, or file path
+    loop: bool = False  # loop video file when it ends
     width: int = 960  # 320–1920
     height: int = 540  # 240–1080
     fps_limit: int = 2  # 1–30

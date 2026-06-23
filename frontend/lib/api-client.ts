@@ -8,6 +8,7 @@ import type {
   AiSummaryResponse,
   IncidentQueryParams,
   EventStatus,
+  PipelineStatus,
 } from "./types";
 import { API_TIMEOUT } from "./constants";
 
@@ -115,6 +116,33 @@ export class ApiClient {
   async getAiSummary(context: AiSummaryRequest): Promise<AiSummaryResponse> {
     const response = await this.client.post("/api/ai/summary", context);
     return response.data;
+  }
+
+  // ─── Pipeline ───────────────────────────────────────────────────────
+
+  /**
+   * Get current pipeline status (running, metrics, error).
+   */
+  async getPipelineStatus(): Promise<PipelineStatus> {
+    const response = await this.client.get("/api/pipeline/status");
+    return response.data;
+  }
+
+  /**
+   * Start the detection pipeline with a given source.
+   */
+  async startPipeline(sourceType: string, sourceId: string | number): Promise<void> {
+    await this.client.post("/api/pipeline/start", {
+      source_type: sourceType,
+      source_id: sourceId,
+    });
+  }
+
+  /**
+   * Stop the detection pipeline.
+   */
+  async stopPipeline(): Promise<void> {
+    await this.client.post("/api/pipeline/stop");
   }
 }
 

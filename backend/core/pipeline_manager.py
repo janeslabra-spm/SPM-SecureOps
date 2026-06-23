@@ -107,6 +107,7 @@ class PipelineManager:
         capture_config = FrameCaptureConfig(
             source_type=source_type,  # type: ignore[arg-type]
             source_id=source_id,
+            loop=source_type == "file",
             width=self._config.camera_width,
             height=self._config.camera_height,
             fps_limit=self._fps_limit,

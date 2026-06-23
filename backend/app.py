@@ -97,6 +97,15 @@ async def lifespan(app: FastAPI):
     )
     app.state.pipeline_manager = pipeline_manager
 
+    # Auto-start pipeline with demo video if DEMO_VIDEO_PATH is set
+    demo_video_path = os.environ.get("DEMO_VIDEO_PATH")
+    if demo_video_path:
+        try:
+            pipeline_manager.start(source_type="file", source_id=demo_video_path)
+            logger.info("Pipeline auto-started with demo video: %s", demo_video_path)
+        except Exception as exc:
+            logger.warning("Failed to auto-start pipeline with demo video: %s", exc)
+
     # Initialize compliance event engine
     compliance_engine = ComplianceEventEngineImpl(
         session_factory=get_session_factory(),

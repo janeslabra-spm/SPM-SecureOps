@@ -83,6 +83,16 @@ export interface IncidentQueryParams {
   status?: string;
 }
 
+/** Pipeline status from GET /api/pipeline/status */
+export interface PipelineStatus {
+  running: boolean;
+  frames_processed: number;
+  current_fps: number;
+  last_inference_ms: number;
+  error: string | null;
+  per_class_counts: Record<string, number>;
+}
+
 /** AWS service card display model */
 export interface AwsServiceCard {
   name: string;

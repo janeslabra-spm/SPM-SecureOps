@@ -11,6 +11,7 @@ import type { ComplianceEvent } from "@/lib/types";
 
 import { StreamPreview } from "@/components/widgets/StreamPreview";
 import { EventFeed } from "@/components/widgets/EventFeed";
+import { PipelineControls } from "@/components/widgets/PipelineControls";
 
 export function LiveMonitoringView() {
   const api = useApiClient();
@@ -59,12 +60,15 @@ export function LiveMonitoringView() {
         </div>
       </section>
 
-      {/* Event Feed */}
-      <EventFeed
-        events={events ?? []}
-        loading={eventsLoading && !events}
-        maxItems={30}
-      />
+      {/* Pipeline Source Controls + Event Feed (right column) */}
+      <div className="flex flex-col gap-4">
+        <PipelineControls />
+        <EventFeed
+          events={events ?? []}
+          loading={eventsLoading && !events}
+          maxItems={30}
+        />
+      </div>
     </div>
   );
 }

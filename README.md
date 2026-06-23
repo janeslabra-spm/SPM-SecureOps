@@ -154,7 +154,7 @@ All tunable parameters are defined in `backend/config.py` (`AppConfig` dataclass
 | `camera_index` | `0` | Webcam device index |
 | `camera_width` | `960` | Capture width |
 | `camera_height` | `540` | Capture height |
-| `duration_threshold` | `2.0s` | Seconds before logging incident |
+| `duration_threshold` | `1.0s` | Seconds before logging incident |
 | `cooldown_seconds` | `10` | Duplicate suppression window |
 | `proximity_pixels` | `80` | Phone-to-person proximity |
 | `ui_fps` | `2` | MJPEG stream frame rate |
@@ -166,7 +166,7 @@ The frontend uses client-side view switching within a single Shell layout (no pa
 
 | View | Description |
 |------|-------------|
-| Dashboard | Overview with status cards, event feed, analytics, governance badges |
+| Dashboard | Overview with status cards, live monitoring card (Browser/MJPEG toggle), event feed, AI assistant, governance badges |
 | Live Monitoring | Full-size MJPEG feed with real-time detection metrics, pipeline controls |
 | Compliance Events | Event list with priority badges, AI assistant panel |
 | Compliance Review | Searchable incident table with workflow actions and CSV export |

@@ -29,7 +29,7 @@ class AppConfig:
     loop_video: bool = True
 
     # Incident thresholds
-    duration_threshold: float = 2.0  # seconds before logging
+    duration_threshold: float = 1.0  # seconds before logging
     cooldown_seconds: int = 10  # suppress duplicates within this window
     proximity_pixels: int = 80  # phone-to-person proximity
 

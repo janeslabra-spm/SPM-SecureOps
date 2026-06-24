@@ -258,13 +258,15 @@ class DetectionWorker:
                         last_detections, table_zone, self._config.proximity_pixels
                     )
 
-                    # Log incidents (async logger called from thread)
-                    logged_count = self._process_incidents(last_candidates, frame)
+                    # Annotate frame first so the screenshot includes bounding boxes
+                    annotated = _draw_overlays(frame, last_detections, last_candidates, table_zone)
+
+                    # Log incidents with the annotated frame (includes detection boxes)
+                    logged_count = self._process_incidents(last_candidates, annotated)
                 else:
                     logged_count = 0
-
-                # Annotate frame with the latest detections (even on non-inference frames)
-                annotated = _draw_overlays(frame, last_detections, last_candidates, table_zone)
+                    # Annotate frame with the latest cached detections
+                    annotated = _draw_overlays(frame, last_detections, last_candidates, table_zone)
 
                 # Encode frame as JPEG
                 ok, encoded = cv2.imencode(

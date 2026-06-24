@@ -72,7 +72,12 @@ function EventFeedItem({ event, isNew }: { event: ComplianceEvent; isNew: boolea
 
   const timeStr = (() => {
     try {
-      const d = new Date(event.timestamp);
+      // Treat naive timestamps (no timezone) as UTC
+      let ts = event.timestamp;
+      if (!ts.endsWith("Z") && !ts.includes("+") && !/\d{2}:\d{2}$/.test(ts.slice(-6))) {
+        ts = ts + "Z";
+      }
+      const d = new Date(ts);
       if (isNaN(d.getTime())) return "";
       return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     } catch { return ""; }

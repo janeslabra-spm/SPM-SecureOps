@@ -10,12 +10,28 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Format an ISO 8601 timestamp to a locale date-time string.
+ * Handles both timezone-aware (UTC) and naive timestamps.
+ * Displays in the user's local browser timezone.
  */
 export function formatTimestamp(isoString: string): string {
   try {
-    const date = new Date(isoString);
+    // If the timestamp has no timezone info, treat it as UTC
+    // (backend stores in UTC but older records may lack the Z suffix)
+    let normalized = isoString;
+    if (!isoString.endsWith("Z") && !isoString.includes("+") && !/\d{2}:\d{2}$/.test(isoString.slice(-6))) {
+      normalized = isoString + "Z";
+    }
+    const date = new Date(normalized);
     if (isNaN(date.getTime())) return isoString;
-    return date.toLocaleString();
+    return date.toLocaleString("en-US", {
+      month: "numeric",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
   } catch {
     return isoString;
   }

@@ -147,6 +147,9 @@ async def detect_frame(request: Request, frame: UploadFile = File(...)) -> Detec
     # Dispatch detection event to compliance engine for incident classification
     dispatcher = getattr(request.app.state, "compliance_dispatcher", None)
     if dispatcher is not None and results:
+        # Draw bounding boxes on the frame for evidence screenshots
+        annotated_frame = _annotate_frame(img.copy(), results)
+
         event = DetectionEvent(
             timestamp=datetime.now(timezone.utc).isoformat(),
             camera_id="browser-camera",
@@ -161,7 +164,7 @@ async def detect_frame(request: Request, frame: UploadFile = File(...)) -> Detec
                 )
                 for r in results
             ],
-            frame=img,  # Include actual frame for screenshot capture
+            frame=annotated_frame,  # Include annotated frame with bounding boxes
         )
         try:
             await dispatcher.dispatch(event)
@@ -174,3 +177,45 @@ async def detect_frame(request: Request, frame: UploadFile = File(...)) -> Detec
         frame_width=frame_width,
         frame_height=frame_height,
     )
+
+
+def _annotate_frame(frame: np.ndarray, results: list[DetectionResult]) -> np.ndarray:
+    """Draw bounding boxes and labels on the frame for evidence screenshots.
+
+    Args:
+        frame: BGR image as numpy array (will be modified in-place).
+        results: Detection results with bounding boxes.
+
+    Returns:
+        The annotated frame.
+    """
+    for r in results:
+        x1 = int(r.bbox["x1"])
+        y1 = int(r.bbox["y1"])
+        x2 = int(r.bbox["x2"])
+        y2 = int(r.bbox["y2"])
+
+        # Color: red for cell phone, blue-orange for person, green for others
+        if r.label == "cell phone":
+            color = (0, 0, 255)  # Red BGR
+        elif r.label == "person":
+            color = (60, 180, 255)  # Orange-blue BGR
+        else:
+            color = (0, 220, 80)  # Green BGR
+
+        # Draw bounding box
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+
+        # Draw label with confidence
+        label = f"{r.label} {r.confidence:.2f}"
+        cv2.putText(
+            frame,
+            label,
+            (x1, max(y1 - 8, 18)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            color,
+            2,
+        )
+
+    return frame

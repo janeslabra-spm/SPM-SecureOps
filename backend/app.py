@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
         model_path=os.environ.get("MODEL_PATH", "yolo11s.pt"),
         device=os.environ.get("DEVICE", "auto"),
         confidence_threshold=float(os.environ.get("CONFIDENCE_THRESHOLD", "0.35")),
-        image_size=int(os.environ.get("IMAGE_SIZE", "416")),
+        image_size=int(os.environ.get("IMAGE_SIZE", "640")),
         source_mode=os.environ.get("SOURCE_MODE", "webcam"),
         camera_index=int(os.environ.get("CAMERA_INDEX", "0")),
         retention_days=int(os.environ.get("RETENTION_DAYS", "7")),

@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import cv2
@@ -92,7 +92,8 @@ class IncidentLogger:
             notes = "Screenshot capture failed"
 
         # Persist the incident to the database
-        timestamp = datetime.now(tz=timezone.utc)
+        # Use UTC time but strip tzinfo since the DB column is TIMESTAMP WITHOUT TIME ZONE
+        timestamp = datetime.utcnow()
 
         async with self._db_session_factory() as session:
             incident = await insert_incident(

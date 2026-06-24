@@ -184,11 +184,11 @@ class DetectionWorker:
         target_interval = 1.0 / max(self._config.ui_fps, 1)
         last_loop_started = time.perf_counter()
 
-        # Inference runs every N frames to keep the stream smooth.
-        # On CPU, YOLO can take 100-500ms per frame which tanks FPS.
-        # We run inference every 3rd frame and reuse last detections otherwise.
-        inference_every_n = 3  # run YOLO every Nth frame
-        frame_counter = 0
+        # Time-based inference: run YOLO every N seconds instead of every frame.
+        # With ~900ms inference on CPU, this keeps the stream smooth by not
+        # blocking every frame. Between inference runs, we reuse cached results.
+        inference_interval = 1.0  # seconds between inference runs
+        last_inference_time = 0.0  # force first inference immediately
 
         # Cache last detection results for reuse between inference frames
         last_detections: list[Detection] = []
@@ -231,16 +231,16 @@ class DetectionWorker:
                     time.sleep(0.2)
                     continue
 
-                frame_counter += 1
-
                 # Compute table zone in pixels (needed for annotation even without inference)
                 height, width = frame.shape[:2]
                 table_zone = table_zone_from_percent(
                     width, height, *zone_percents
                 )
 
-                # Run YOLO inference only every Nth frame to reduce lag
-                if frame_counter % inference_every_n == 1 or inference_every_n == 1:
+                # Run YOLO inference only when enough time has passed
+                now = time.perf_counter()
+                if now - last_inference_time >= inference_interval:
+                    last_inference_time = now
                     inference_started = time.perf_counter()
                     try:
                         last_detections = detector.detect(
@@ -268,7 +268,7 @@ class DetectionWorker:
 
                 # Encode frame as JPEG
                 ok, encoded = cv2.imencode(
-                    ".jpg", annotated, [int(cv2.IMWRITE_JPEG_QUALITY), 82]
+                    ".jpg", annotated, [int(cv2.IMWRITE_JPEG_QUALITY), 75]
                 )
                 if ok:
                     elapsed = max(time.perf_counter() - last_loop_started, 0.001)

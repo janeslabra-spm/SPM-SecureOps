@@ -263,12 +263,21 @@ class PipelineManager:
 
         Captures frames, runs inference, extracts bounding boxes, scores
         detections, updates metrics, and dispatches compliance events.
+        Uses time-based inference scheduling to maintain smooth operation
+        when inference is slow (e.g., CPU-only at 900ms+).
         Exits on stop signal or unrecoverable error.
         """
         consecutive_inference_failures = 0
         consecutive_slow_frames = 0
         fps_tracker_start = time.monotonic()
         fps_frame_count = 0
+
+        # Time-based inference: only run YOLO every N seconds
+        # This prevents the loop from stalling at 1 FPS on slow hardware
+        inference_interval = 1.0  # seconds between inference runs
+        last_inference_time = 0.0  # force first inference immediately
+        last_results: list[DetectionResult] = []
+        last_inference_ms = 0.0
 
         while not self._stop_event.is_set():
             try:
@@ -278,33 +287,53 @@ class PipelineManager:
                     # Webcam skip — no frame available, continue loop
                     continue
 
-                # Step 2: Run inference (measure time)
-                inference_start = time.monotonic()
-                raw_detections = self._inference_engine.infer(
-                    frame,
-                    image_size=self._image_size,
-                    confidence_threshold=self._config.confidence_threshold,
-                )
-                inference_ms = (time.monotonic() - inference_start) * 1000.0
+                now = time.monotonic()
+                run_inference = (now - last_inference_time) >= inference_interval
 
-                # Check for inference failure (empty result could be normal)
-                # We consider it a failure only if an exception was swallowed
-                # internally by the inference engine. Since it returns [] on
-                # failure, we rely on the consecutive failure tracking below.
-                # A true inference failure is indicated by an exception.
-                # Reset consecutive failures on success.
-                consecutive_inference_failures = 0
+                if run_inference:
+                    last_inference_time = now
 
-                # Step 3: Extract bounding boxes
-                frame_height, frame_width = frame.shape[:2]
-                detections = self._bbox_extractor.extract(
-                    raw_detections, frame_width, frame_height
-                )
+                    # Step 2: Run inference (measure time)
+                    inference_start = time.monotonic()
+                    raw_detections = self._inference_engine.infer(
+                        frame,
+                        image_size=self._image_size,
+                        confidence_threshold=self._config.confidence_threshold,
+                    )
+                    last_inference_ms = (time.monotonic() - inference_start) * 1000.0
 
-                # Step 4: Confidence scoring and NMS
-                results = self._confidence_scorer.filter(detections)
+                    consecutive_inference_failures = 0
 
-                # Step 5: Update metrics
+                    # Step 3: Extract bounding boxes
+                    frame_height, frame_width = frame.shape[:2]
+                    detections = self._bbox_extractor.extract(
+                        raw_detections, frame_width, frame_height
+                    )
+
+                    # Step 4: Confidence scoring and NMS
+                    last_results = self._confidence_scorer.filter(detections)
+
+                    # Step 7: Track latency warnings
+                    if last_inference_ms > _LATENCY_WARNING_THRESHOLD_MS:
+                        consecutive_slow_frames += 1
+                        if consecutive_slow_frames >= _SLOW_FRAME_WARNING_COUNT:
+                            logger.warning(
+                                "Performance warning: inference latency exceeded "
+                                "%.0fms for %d consecutive frames (last=%.1fms)",
+                                _LATENCY_WARNING_THRESHOLD_MS,
+                                consecutive_slow_frames,
+                                last_inference_ms,
+                            )
+                            consecutive_slow_frames = 0
+                    else:
+                        consecutive_slow_frames = 0
+
+                    # Step 8: Dispatch compliance event if detections are non-empty
+                    if last_results:
+                        frame_height, frame_width = frame.shape[:2]
+                        self._dispatch_event(last_results, frame_width, frame_height)
+
+                # Step 5: Update metrics (every frame for FPS tracking)
                 fps_frame_count += 1
                 elapsed_since_fps_reset = time.monotonic() - fps_tracker_start
                 if elapsed_since_fps_reset >= 1.0:
@@ -320,44 +349,26 @@ class PipelineManager:
 
                 # Count per-class detections
                 per_class_counts = {"person": 0, "cell phone": 0, "book": 0}
-                for result in results:
+                for result in last_results:
                     if result.label in per_class_counts:
                         per_class_counts[result.label] += 1
 
                 with self._lock:
                     self._metrics.frames_processed += 1
                     self._metrics.current_fps = current_fps
-                    self._metrics.last_inference_ms = inference_ms
+                    self._metrics.last_inference_ms = last_inference_ms
                     self._metrics.per_class_counts = per_class_counts
-                    self._latest_detections = results
+                    self._latest_detections = last_results
                     frame_number = self._metrics.frames_processed
 
                 # Step 6: Log inference cycle at DEBUG
-                logger.debug(
-                    "Inference cycle: frame=%d, duration=%.1fms, detections=%d",
-                    frame_number,
-                    inference_ms,
-                    len(results),
-                )
-
-                # Step 7: Track latency warnings
-                if inference_ms > _LATENCY_WARNING_THRESHOLD_MS:
-                    consecutive_slow_frames += 1
-                    if consecutive_slow_frames >= _SLOW_FRAME_WARNING_COUNT:
-                        logger.warning(
-                            "Performance warning: inference latency exceeded "
-                            "%.0fms for %d consecutive frames (last=%.1fms)",
-                            _LATENCY_WARNING_THRESHOLD_MS,
-                            consecutive_slow_frames,
-                            inference_ms,
-                        )
-                        consecutive_slow_frames = 0
-                else:
-                    consecutive_slow_frames = 0
-
-                # Step 8: Dispatch compliance event if detections are non-empty
-                if results:
-                    self._dispatch_event(results, frame_width, frame_height)
+                if run_inference:
+                    logger.debug(
+                        "Inference cycle: frame=%d, duration=%.1fms, detections=%d",
+                        frame_number,
+                        last_inference_ms,
+                        len(last_results),
+                    )
 
             except SourceUnavailableError as exc:
                 # Unrecoverable source failure

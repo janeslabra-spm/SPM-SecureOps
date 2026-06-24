@@ -151,7 +151,7 @@ All tunable parameters are defined in `backend/config.py` (`AppConfig` dataclass
 | `model_path` | `yolo11s.pt` | YOLO model file |
 | `device` | `auto` | Inference device (`auto`, `cpu`, `mps`) |
 | `confidence_threshold` | `0.45` | Minimum detection confidence |
-| `image_size` | `640` | Inference input resolution |
+| `image_size` | `416` | Inference input resolution |
 | `camera_index` | `0` | Webcam device index |
 | `camera_width` | `960` | Capture width |
 | `camera_height` | `540` | Capture height |

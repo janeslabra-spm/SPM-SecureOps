@@ -17,8 +17,8 @@ class AppConfig:
     # Detection
     model_path: str = "yolo11s.pt"
     device: str = "auto"
-    confidence_threshold: float = 0.45
-    image_size: int = 640
+    confidence_threshold: float = 0.35
+    image_size: int = 416
 
     # Video source
     source_mode: str = "webcam"  # "webcam" | "sample_video"

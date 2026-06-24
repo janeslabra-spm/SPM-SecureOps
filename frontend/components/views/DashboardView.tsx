@@ -37,31 +37,28 @@ export function DashboardView() {
     <div data-testid="view-dashboard" className="flex flex-col gap-4">
       <SystemStatusCards />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        {/* Left column: Live monitoring */}
-        <div className="flex flex-col gap-4 xl:col-span-2">
+      {/* Main content: Stream + Event Feed */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        {/* Live monitoring - wider */}
+        <div className="xl:col-span-3">
           <LiveMonitoringCard sourceMode={sourceMode} onSourceChange={setSourceMode} />
         </div>
 
-        {/* Right column: Scrollable Event Feed */}
-        <div className="xl:col-span-1 min-h-0">
+        {/* Event Feed - constrained height */}
+        <div className="xl:col-span-2">
           <EventFeed
             events={allEvents}
             loading={loading && !events}
             maxItems={20}
-            className="h-full max-h-[420px]"
+            className="max-h-[460px]"
           />
         </div>
       </div>
 
-      {/* Bottom row: AI Assistant + Compliance Score — side by side */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-2">
-          <AiAssistant events={allEvents} viewContext="dashboard" />
-        </div>
-        <div className="lg:col-span-3">
-          <ComplianceScore events={allEvents} />
-        </div>
+      {/* Bottom row: Compliance Score + AI Assistant */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ComplianceScore events={allEvents} />
+        <AiAssistant events={allEvents} viewContext="dashboard" className="max-h-[320px] overflow-y-auto" />
       </div>
 
       <GovernanceBadges />

@@ -25,7 +25,16 @@ from backend.db.session import get_db_session
 class StatusUpdateRequest(BaseModel):
     """Request body for updating an incident's review status."""
 
-    status: Literal["Pending Review", "Confirmed", "False Alarm"]
+    status: Literal[
+        "Pending Review",
+        "Confirmed",
+        "False Positive",
+        "False Alarm",
+        "Warning Issued",
+        "Coaching Required",
+        "Escalated",
+        "Resolved",
+    ]
 
 
 class IncidentResponse(BaseModel):

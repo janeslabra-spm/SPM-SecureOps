@@ -63,7 +63,7 @@ class BedrockComplianceService:
         "You are a concise security compliance analyst. "
         "Given cellphone detection events in a restricted workspace, respond ONLY with valid JSON:\n"
         '{"summary":"<1-2 sentence overview>","riskLevel":"<Low|Medium|High|Critical>",'
-        '"activeViolations":{"PHONE_ON_TABLE":<count>,"PHONE_HELD_OR_NEAR_PERSON":<count>},'
+        '"activeViolations":{"PHONE_ON_TABLE":<count>,"PHONE_NEAR_PERSON":<count>},'
         '"patterns":"<1 sentence pattern observation>"}\n'
         "Rules: riskLevel is Critical if >=5 events or any confidence>0.9, "
         "High if >=3 events, Medium if >=2, Low otherwise."

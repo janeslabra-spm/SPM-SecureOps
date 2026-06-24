@@ -267,9 +267,11 @@ export function ComplianceReviewView() {
                         {formatTimestamp(event.timestamp)}
                       </TableCell>
                       <TableCell className="text-xs">
-                        {event.eventType === "PHONE_ON_TABLE" || event.eventType === "PHONE_HELD_OR_NEAR_PERSON"
+                        {event.eventType === "PHONE_ON_TABLE" || event.eventType === "PHONE_NEAR_PERSON" || event.eventType === "PHONE_HELD_OR_NEAR_PERSON"
                           ? "Mobile Device Detection"
-                          : "Printed Material Detection"}
+                          : event.eventType === "DOCUMENT_LEFT_ON_DESK"
+                            ? "Printed Material Detection"
+                            : event.eventType}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -435,9 +437,11 @@ function EvidenceModal({ event, onClose }: { event: ComplianceEvent; onClose: ()
           <div>
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Event Type</p>
             <p className="mt-0.5 text-xs font-medium">
-              {event.eventType === "PHONE_ON_TABLE" || event.eventType === "PHONE_HELD_OR_NEAR_PERSON"
+              {event.eventType === "PHONE_ON_TABLE" || event.eventType === "PHONE_NEAR_PERSON" || event.eventType === "PHONE_HELD_OR_NEAR_PERSON"
                 ? "Mobile Device"
-                : "Printed Material"}
+                : event.eventType === "DOCUMENT_LEFT_ON_DESK"
+                  ? "Printed Material"
+                  : event.eventType}
             </p>
           </div>
           <div>

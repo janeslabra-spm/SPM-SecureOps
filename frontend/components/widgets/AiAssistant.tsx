@@ -1,9 +1,21 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import { Sparkles, FileSearch, AlertCircle, ListChecks, TrendingUp, Loader2 } from "lucide-react";
+import {
+  Sparkles,
+  FileSearch,
+  AlertCircle,
+  ListChecks,
+  TrendingUp,
+  Loader2,
+  Zap,
+  RefreshCw,
+  ShieldCheck,
+  Clock,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 import type { ComplianceEvent } from "@/lib/types";
 import type { AiSummaryResponse } from "@/lib/types";
 import type { ViewKey } from "@/lib/constants";
@@ -21,100 +33,116 @@ const RISK_COLORS: Record<string, string> = {
   Critical: "text-destructive font-bold",
 };
 
+const RISK_BG: Record<string, string> = {
+  Low: "bg-green-500/10 border-green-500/30",
+  Medium: "bg-warning/10 border-warning/30",
+  High: "bg-orange-500/10 border-orange-500/30",
+  Critical: "bg-destructive/10 border-destructive/30",
+};
+
 /**
- * AiAssistant — Bedrock AI advisory panel showing live compliance analysis.
+ * AiAssistant — Bedrock AI advisory panel with manual activation.
  *
- * Calls the backend /api/ai/summary endpoint which proxies to Amazon Bedrock
- * Nova Lite. Falls back to a rule-based summary if Bedrock is unavailable.
+ * Cost-effective design:
+ * - Analysis is NOT auto-triggered — user must click "Run Analysis"
+ * - 60s minimum cooldown between requests prevents accidental spam
+ * - Shows last analysis time so users know if data is stale
+ * - Caching on the backend further reduces Bedrock calls
  */
-/** Minimum seconds between AI analysis requests (cost control). */
-const MIN_REFRESH_INTERVAL_MS = 60_000;
+const MIN_COOLDOWN_MS = 60_000; // 60s between allowed requests
 
 export function AiAssistant({ events, viewContext, className }: AiAssistantProps) {
   const [analysis, setAnalysis] = useState<AiSummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastAnalyzedAt, setLastAnalyzedAt] = useState<Date | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const lastFetchTimeRef = useRef<number>(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestEventsRef = useRef(events);
-  const latestViewRef = useRef(viewContext);
+  const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Always keep refs current so the deferred fetch uses latest data
-  latestEventsRef.current = events;
-  latestViewRef.current = viewContext;
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+    };
+  }, []);
 
-  // Stable fetch function that always reads from refs
-  const doFetch = useCallback(async () => {
-    const currentEvents = latestEventsRef.current;
-    const currentView = latestViewRef.current;
+  const startCooldownTimer = useCallback(() => {
+    if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+    setCooldownRemaining(MIN_COOLDOWN_MS / 1000);
 
-    if (currentEvents.length === 0) {
-      setAnalysis(null);
-      setLoading(false);
-      return;
+    cooldownTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - lastFetchTimeRef.current;
+      const remaining = Math.max(0, Math.ceil((MIN_COOLDOWN_MS - elapsed) / 1000));
+      setCooldownRemaining(remaining);
+      if (remaining === 0 && cooldownTimerRef.current) {
+        clearInterval(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
+    }, 1000);
+  }, []);
+
+  const runAnalysis = useCallback(async () => {
+    if (events.length === 0) return;
+
+    const now = Date.now();
+    const elapsed = now - lastFetchTimeRef.current;
+    if (elapsed < MIN_COOLDOWN_MS && lastFetchTimeRef.current !== 0) {
+      return; // Still in cooldown
     }
 
     setLoading(true);
     setError(null);
     lastFetchTimeRef.current = Date.now();
+    startCooldownTimer();
 
     try {
       const result = await apiClient.getAiSummary({
-        events: currentEvents.slice(0, 20).map((e) => ({
+        events: events.slice(0, 20).map((e) => ({
           id: e.id,
           type: e.eventType ?? "unknown",
           confidence: e.confidence ?? 0,
           timestamp: e.timestamp ?? new Date().toISOString(),
         })),
-        viewContext: currentView,
+        viewContext,
       });
       setAnalysis(result);
+      setLastAnalyzedAt(new Date());
     } catch {
-      setError("Analysis unavailable");
+      setError("Analysis unavailable — check Bedrock configuration");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [events, viewContext, startCooldownTimer]);
 
-  // Derive a stable fingerprint from event IDs
-  const eventsKey = useMemo(
-    () => events.map((e) => e.id).sort().join(","),
-    [events],
-  );
+  const canRun = events.length > 0 && !loading && cooldownRemaining === 0;
 
-  useEffect(() => {
-    if (events.length === 0) {
-      setAnalysis(null);
-      return;
+  // Derive recommendations from analysis
+  const recommendations = useMemo(() => {
+    if (!analysis) return [];
+    const recs: string[] = [];
+    const totalViolations = Object.values(analysis.activeViolations).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+
+    if (analysis.riskLevel === "Critical" || analysis.riskLevel === "High") {
+      recs.push("Immediate supervisor review recommended");
     }
-
-    const now = Date.now();
-    const elapsed = now - lastFetchTimeRef.current;
-
-    if (elapsed >= MIN_REFRESH_INTERVAL_MS || lastFetchTimeRef.current === 0) {
-      // Enough time has passed — fetch immediately
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-      doFetch();
-    } else if (!timerRef.current) {
-      // Schedule a deferred fetch for when the cooldown expires
-      const delay = MIN_REFRESH_INTERVAL_MS - elapsed;
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        doFetch();
-      }, delay);
+    if (totalViolations >= 5) {
+      recs.push("Consider issuing a floor-wide compliance reminder");
     }
-    // If a timer is already pending, do nothing — it will pick up latest data via refs
-
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [eventsKey, viewContext, doFetch]);
+    if (analysis.activeViolations["PHONE_ON_TABLE"] && analysis.activeViolations["PHONE_ON_TABLE"] >= 3) {
+      recs.push("Multiple phones on desks — check desk zone configuration");
+    }
+    if (analysis.activeViolations["PHONE_NEAR_PERSON"] && analysis.activeViolations["PHONE_NEAR_PERSON"] >= 3) {
+      recs.push("Recurring phone-near-person events — possible active usage");
+    }
+    if (totalViolations === 0) {
+      recs.push("No active violations — compliance is nominal");
+    }
+    return recs;
+  }, [analysis]);
 
   // Build display rows from analysis
   const rows = analysis
@@ -129,13 +157,21 @@ export function AiAssistant({ events, viewContext, className }: AiAssistantProps
           label: "Risk Level",
           value: analysis.riskLevel,
           colorClass: RISK_COLORS[analysis.riskLevel] ?? "",
+          bgClass: RISK_BG[analysis.riskLevel] ?? "",
         },
         {
           icon: ListChecks,
           label: "Active Violations",
           value:
             Object.entries(analysis.activeViolations)
-              .map(([type, count]) => `${type}: ${count}`)
+              .map(([type, count]) => {
+                // Format type names for readability
+                const label = type
+                  .replace("PHONE_ON_TABLE", "Phone on Desk")
+                  .replace("PHONE_NEAR_PERSON", "Phone Near Person")
+                  .replace("DOCUMENT_LEFT_ON_DESK", "Document on Desk");
+                return `${label}: ${count}`;
+              })
               .join(", ") || "None",
         },
         {
@@ -148,6 +184,7 @@ export function AiAssistant({ events, viewContext, className }: AiAssistantProps
 
   return (
     <section className={cn("glass flex flex-col rounded-2xl p-5", className)}>
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="grid size-9 place-items-center rounded-lg bg-primary/15 text-primary ring-1 ring-primary/30">
@@ -155,36 +192,94 @@ export function AiAssistant({ events, viewContext, className }: AiAssistantProps
           </div>
           <div>
             <h2 className="text-sm font-semibold">AI Compliance Assistant</h2>
-            <p className="text-xs text-muted-foreground">Advisory analysis only</p>
+            <p className="text-xs text-muted-foreground">On-demand advisory analysis</p>
           </div>
         </div>
+
+        {/* Manual trigger button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={runAnalysis}
+          disabled={!canRun}
+          className={cn(
+            "gap-1.5 text-xs transition-all",
+            canRun
+              ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+              : "opacity-60"
+          )}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" />
+              Analyzing...
+            </>
+          ) : cooldownRemaining > 0 ? (
+            <>
+              <Clock className="size-3.5" />
+              {cooldownRemaining}s
+            </>
+          ) : (
+            <>
+              <Zap className="size-3.5" />
+              Run Analysis
+            </>
+          )}
+        </Button>
       </div>
 
+      {/* Last analyzed indicator */}
+      {lastAnalyzedAt && !loading && (
+        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <RefreshCw className="size-3" />
+          Last analyzed: {lastAnalyzedAt.toLocaleTimeString()}
+          <span className="ml-1 text-muted-foreground/60">
+            · {events.length} events
+          </span>
+        </div>
+      )}
+
+      {/* Content area */}
       <div className="mt-4 flex flex-col gap-3">
-        {loading && (
-          <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            <span className="text-sm">Analyzing events...</span>
+        {/* Initial state — no analysis yet */}
+        {!loading && !error && !analysis && (
+          <div className="rounded-xl border border-border bg-card/50 p-4 text-center">
+            <Sparkles className="size-8 mx-auto text-muted-foreground/50 mb-2" />
+            <p className="text-sm text-muted-foreground">
+              {events.length === 0
+                ? "No events to analyze."
+                : "Click \"Run Analysis\" to get AI-powered insights on current compliance events."}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground/60">
+              Powered by Amazon Bedrock Nova Lite · Cost-optimized
+            </p>
           </div>
         )}
 
+        {/* Loading state */}
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            <span className="text-sm">Analyzing {events.length} events...</span>
+          </div>
+        )}
+
+        {/* Error state */}
         {error && !loading && (
-          <div className="rounded-xl border border-border bg-card/50 p-3.5">
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3.5">
             <p className="text-sm text-muted-foreground">{error}</p>
           </div>
         )}
 
-        {!loading && !error && events.length === 0 && (
-          <div className="rounded-xl border border-border bg-card/50 p-3.5">
-            <p className="text-sm text-muted-foreground">No events to analyze.</p>
-          </div>
-        )}
-
+        {/* Analysis results */}
         {!loading &&
-          rows.map(({ icon: Icon, label, value, colorClass }) => (
+          rows.map(({ icon: Icon, label, value, colorClass, bgClass }) => (
             <div
               key={label}
-              className="rounded-xl border border-border bg-card/50 p-3.5"
+              className={cn(
+                "rounded-xl border border-border bg-card/50 p-3.5",
+                label === "Risk Level" && bgClass
+              )}
             >
               <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 <Icon className="size-3.5" />
@@ -200,12 +295,36 @@ export function AiAssistant({ events, viewContext, className }: AiAssistantProps
               </p>
             </div>
           ))}
+
+        {/* Recommendations section */}
+        {!loading && recommendations.length > 0 && (
+          <div className="rounded-xl border border-border bg-card/50 p-3.5">
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <ShieldCheck className="size-3.5" />
+              Recommendations
+            </div>
+            <ul className="mt-2 space-y-1.5">
+              {recommendations.map((rec, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+                  {rec}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
-      <div className="mt-4 flex items-center gap-2 self-start rounded-full border border-border bg-card px-3 py-1.5">
-        <span className="size-2 rounded-full bg-primary pulse-dot" />
-        <span className="text-xs font-medium text-muted-foreground">
-          Powered by Amazon Bedrock
+      {/* Footer */}
+      <div className="mt-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
+          <span className="size-2 rounded-full bg-primary pulse-dot" />
+          <span className="text-xs font-medium text-muted-foreground">
+            Powered by Amazon Bedrock
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground/50">
+          Manual activation · Cost-optimized
         </span>
       </div>
     </section>

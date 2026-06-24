@@ -38,26 +38,29 @@ export function DashboardView() {
       <SystemStatusCards />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        {/* Left column: Live monitoring + AI + Score */}
+        {/* Left column: Live monitoring */}
         <div className="flex flex-col gap-4 xl:col-span-2">
-          {/* Live stream */}
           <LiveMonitoringCard sourceMode={sourceMode} onSourceChange={setSourceMode} />
-
-          {/* AI + Score */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <AiAssistant events={allEvents} viewContext="dashboard" />
-            <ComplianceScore events={allEvents} />
-          </div>
         </div>
 
         {/* Right column: Scrollable Event Feed */}
-        <div className="xl:col-span-1 xl:h-[calc(100vh-220px)] xl:sticky xl:top-4 overflow-hidden">
+        <div className="xl:col-span-1 min-h-0">
           <EventFeed
             events={allEvents}
             loading={loading && !events}
             maxItems={20}
-            className="h-full overflow-hidden"
+            className="h-full max-h-[420px]"
           />
+        </div>
+      </div>
+
+      {/* Bottom row: AI Assistant + Compliance Score — side by side */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-2">
+          <AiAssistant events={allEvents} viewContext="dashboard" />
+        </div>
+        <div className="lg:col-span-3">
+          <ComplianceScore events={allEvents} />
         </div>
       </div>
 
